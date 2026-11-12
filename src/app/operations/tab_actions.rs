@@ -51,6 +51,11 @@ impl ImageViewerApp {
         }
         match action {
             TabAction::ExpandFolderTree | TabAction::CollapseFolderTree => {
+                // The checkbox also persists the auto-expand preference.
+                let auto_expand = action == TabAction::ExpandFolderTree;
+                if self.auto_expand_folder_tree != auto_expand {
+                    self.auto_expand_folder_tree = auto_expand;
+                }
                 let owner = crate::app::state::sidebar_tree_state::reveal::RevealOwner::workspace(
                     self.tab_manager.tabs[index].id,
                 )
@@ -62,6 +67,7 @@ impl ImageViewerApp {
                 }
                 .clone();
                 self.apply_tab_tree_action(owner, &path, action);
+                self.save_preferences();
             }
             TabAction::PinQuickAccess | TabAction::UnpinQuickAccess => {
                 let path = if index == self.tab_manager.active_tab {
@@ -74,6 +80,7 @@ impl ImageViewerApp {
             }
             TabAction::Close => self.close_main_tab(index),
             TabAction::ReopenClosed => self.reopen_closed_main_tab(),
+            TabAction::SaveTabsAsGroup => self.begin_save_tabs_as_group(),
             TabAction::Duplicate => {
                 if !self.tab_manager.can_add_tab() {
                     self.notifications.warning(
@@ -126,13 +133,17 @@ impl ImageViewerApp {
         match action {
             // Closed workspace tabs belong to the main strip, not pane tabs.
             TabAction::ReopenClosed => (),
+            TabAction::SaveTabsAsGroup => (),
             TabAction::ExpandFolderTree | TabAction::CollapseFolderTree => {
+                let auto_expand = action == TabAction::ExpandFolderTree;
+                self.auto_expand_folder_tree = auto_expand;
                 let owner = crate::app::state::sidebar_tree_state::reveal::RevealOwner::panel(
                     self.tab_manager.active().id,
                     set.tabs[index].id,
                 );
                 let path = set.tabs[index].snapshot.path.clone();
                 self.apply_tab_tree_action(owner, &path, action);
+                self.save_preferences();
             }
             TabAction::PinQuickAccess | TabAction::UnpinQuickAccess => {
                 let path = set.tabs[index].snapshot.path.clone();

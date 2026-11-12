@@ -11,6 +11,10 @@ pub(crate) struct TabContextMenuOptions {
     pub tree_action: Option<TabAction>,
     /// Pane strips do not share workspace closed-tab history and use `None`.
     pub can_reopen: Option<bool>,
+    /// Only the workspace strip can capture the whole window's tabs.
+    pub can_save_group: bool,
+    /// Persisted "auto-expand folder tree" preference shown as a checkbox.
+    pub auto_expand_tree: bool,
 }
 
 /// Commands do not select the clicked tab.
@@ -26,6 +30,8 @@ pub(crate) fn tab_context_menu(
         quick_access_action,
         tree_action,
         can_reopen,
+        can_save_group,
+        auto_expand_tree,
     } = options;
     let mut action = None;
     response.context_menu(|ui| {
@@ -62,18 +68,28 @@ pub(crate) fn tab_context_menu(
                 ui.close();
             }
         }
+        if can_save_group {
+            if ui.button(t!("tabs.save_group")).clicked() {
+                action = Some(TabAction::SaveTabsAsGroup);
+                ui.close();
+            }
+        }
         ui.separator();
-        let tree_label = if tree_action == Some(TabAction::CollapseFolderTree) {
-            t!("tabs.collapse_folder_tree")
-        } else {
-            t!("tabs.expand_folder_tree")
-        };
-        if ui
-            .add_enabled(tree_action.is_some(), egui::Button::new(tree_label))
-            .clicked()
-        {
-            action = tree_action;
-            ui.close();
+        // Checkbox menu item: checked persists the auto-expand preference;
+        // toggling it also applies/collapses the current tab immediately.
+        // `tree_action` is Some only for paths that can be revealed in the tree.
+        if tree_action.is_some() {
+            let mut checked = auto_expand_tree;
+            let response =
+                ui.add(egui::Checkbox::new(&mut checked, t!("tabs.auto_expand_folder_tree")));
+            if response.clicked() {
+                action = Some(if checked {
+                    TabAction::ExpandFolderTree
+                } else {
+                    TabAction::CollapseFolderTree
+                });
+                ui.close();
+            }
         }
         if let Some(command @ (TabAction::PinQuickAccess | TabAction::UnpinQuickAccess)) =
             quick_access_action

@@ -45,6 +45,8 @@ pub(super) fn handle(app: &mut ImageViewerApp, action: SidebarAction) {
         SidebarAction::CancelTreeRename => app.cancel_sidebar_folder_rename(),
         SidebarAction::PinFolder(path) => app.pin_folder(&path),
         SidebarAction::UnpinFolder(path) => app.unpin_folder(&path),
+        SidebarAction::OpenFolderGroup(group_id) => app.open_folder_group(group_id),
+        SidebarAction::DeleteFolderGroup(group_id) => app.delete_folder_group(group_id),
         SidebarAction::ReorderPinnedFolder { from, to } => app.reorder_pinned_folder(from, to),
         SidebarAction::ReorderTag {
             tag_id,

@@ -171,6 +171,7 @@ impl ImageViewerApp {
         self.poll_drive_health();
         self.dispatch_drive_health_requests();
         self.validate_tab_tree_reveals();
+        self.auto_reveal_active_tab();
         if self.sidebar_tree.poll_loaded() {
             ctx.request_repaint();
         }
@@ -731,6 +732,8 @@ impl eframe::App for ImageViewerApp {
         if self.pending_tag_cascade.is_some() {
             crate::ui::components::tag_cascade_modal::render_tag_cascade_modal(self, ctx);
         }
+
+        crate::ui::components::folder_group_modal::render_save_group_modal(self, ctx);
 
         // 14. Notifications
         app::notifications::render_notifications(self, ctx);

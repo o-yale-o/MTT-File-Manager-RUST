@@ -95,6 +95,10 @@ sidebar:
   eject_drive: "Ejetar ISO montada"
   collapse_section: "Recolher seção"
   expand_section: "Expandir seção"
+  group_open_all: "Abrir tudo"
+  group_open_all_count: "%{count} pasta(s)"
+  group_delete: "Excluir grupo"
+  group_name_exists: "Já existe um grupo com esse nome."
 tags:
   browser_search: "Buscar tags ou pastas…"
   browser_select: "Selecione um item para ver ou editar seus detalhes."
@@ -1280,6 +1284,7 @@ notifications:
 tabs:
   expand_folder_tree: "Expandir árvore da pasta"
   collapse_folder_tree: "Recolher árvore da pasta"
+  auto_expand_folder_tree: "Expandir árvore da pasta automaticamente"
   detaching: "Movendo aba para uma nova janela…"
   detach_failed: "Não foi possível abrir a nova janela. A aba foi mantida nesta janela."
   close: "Fechar aba"
@@ -1292,6 +1297,11 @@ tabs:
   max_reached: "Limite de %{max} abas atingido. Feche uma aba para abrir outra."
   panel_new: "Nova aba do painel"
   panel_close: "Fechar aba do painel"
+  save_group: "Salvar todas as abas como grupo…"
+  save_group_title: "Salvar grupo de abas"
+  save_group_count: "As pastas de %{count} aba(s) aberta(s) serão salvas neste grupo."
+  group_default_name: "Novo grupo"
+  group_name_required: "O nome do grupo não pode ficar vazio."
 
 disk_analysis:
   analyze: "Analisar uso do disco"

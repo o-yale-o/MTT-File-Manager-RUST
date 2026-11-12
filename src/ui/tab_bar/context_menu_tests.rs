@@ -53,6 +53,8 @@ fn clicking_empty_title_strip_dismisses_tab_menu_without_opening_a_tab_or_draggi
                     quick_access_action: None,
                     tree_action: None,
                     can_reopen: Some(false),
+                    can_save_group: false,
+                    auto_expand_tree: false,
                 },
             ));
             new_tab_clicked |= super::new_tab_area::render_new_tab_and_drag_area(
@@ -115,6 +117,8 @@ fn reopen_menu_entry_is_disabled_without_history_and_hidden_for_pane_tabs() {
                     quick_access_action: None,
                     tree_action: None,
                     can_reopen: availability,
+                    can_save_group: false,
+                    auto_expand_tree: false,
                 },
             ));
         };
@@ -161,12 +165,65 @@ fn quick_access_commands_do_not_select_or_pin_the_tab() {
 }
 
 #[test]
-fn folder_tree_commands_do_not_select_the_clicked_tab() {
-    for (action, label) in [
-        (TabAction::ExpandFolderTree, "tabs.expand_folder_tree"),
-        (TabAction::CollapseFolderTree, "tabs.collapse_folder_tree"),
+fn auto_expand_tree_checkbox_toggles_the_preference_without_selecting_the_tab() {
+    for (checked, expected) in [
+        (false, TabAction::ExpandFolderTree),
+        (true, TabAction::CollapseFolderTree),
     ] {
-        click_command_without_selecting_tab(None, action, label, false);
+        let ctx = Context::default();
+        let mut action = None;
+        let mut selected = false;
+        let mut render = |ui: &mut egui::Ui| {
+            let response = ui.allocate_response(vec2(180.0, 36.0), Sense::click());
+            selected |= response.clicked();
+            if let Some(command) = tab_context_menu(
+                &response,
+                TabContextMenuOptions {
+                    pinned: false,
+                    can_duplicate: true,
+                    can_close_left: false,
+                    can_close_right: false,
+                    quick_access_action: None,
+                    tree_action: Some(TabAction::ExpandFolderTree),
+                    can_reopen: Some(true),
+                    can_save_group: false,
+                    auto_expand_tree: checked,
+                },
+            ) {
+                action = Some(command);
+            }
+        };
+        let _ = ctx.run_ui(RawInput::default(), &mut render);
+        let point = pos2(40.0, 20.0);
+        let _ = ctx.run_ui(
+            pointer_input(point, PointerButton::Secondary, true),
+            &mut render,
+        );
+        let _ = ctx.run_ui(
+            pointer_input(point, PointerButton::Secondary, false),
+            &mut render,
+        );
+        // Popups use an initial sizing pass before exposing their painted rows.
+        let output = ctx.run_ui(RawInput::default(), &mut render);
+        let command_position = output
+            .shapes
+            .iter()
+            .find_map(|shape| match &shape.shape {
+                egui::epaint::Shape::Text(text) if text.galley.text() == rust_i18n::t!("tabs.auto_expand_folder_tree") => {
+                    Some(shape.shape.visual_bounding_rect().center())
+                }
+                _ => None,
+            })
+            .expect("auto expand checkbox is visible");
+        for pressed in [true, false] {
+            let _ = ctx.run_ui(
+                pointer_input(command_position, PointerButton::Primary, pressed),
+                &mut render,
+            );
+        }
+        let _ = ctx.run_ui(RawInput::default(), &mut render);
+        assert_eq!(action, Some(expected));
+        assert!(!selected);
     }
 }
 
@@ -210,6 +267,8 @@ fn click_command_without_selecting_tab(
                 )
                 .then_some(expected),
                 can_reopen: Some(true),
+                can_save_group: false,
+                auto_expand_tree: false,
             },
         ) {
             action = Some(command);

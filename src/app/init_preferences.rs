@@ -30,6 +30,7 @@ pub(super) struct StartupPreferences {
     pub(super) show_recycle_bin: bool,
     pub(super) show_quick_access: bool,
     pub(super) quick_access_placement: QuickAccessPlacement,
+    pub(super) auto_expand_folder_tree: bool,
     pub(super) show_tags: bool,
     pub(super) language: String,
     pub(super) theme_mode: ThemeMode,
@@ -202,6 +203,11 @@ impl StartupPreferences {
                 _ => QuickAccessPlacement::Sidebar,
             })
             .unwrap_or_default();
+
+        let auto_expand_folder_tree = prefs
+            .get("auto_expand_folder_tree")
+            .map(|s| s == "true")
+            .unwrap_or(false);
 
         let show_tags = prefs.get("show_tags").map(|s| s != "false").unwrap_or(true);
 
@@ -399,6 +405,7 @@ impl StartupPreferences {
             show_recycle_bin,
             show_quick_access,
             quick_access_placement,
+            auto_expand_folder_tree,
             show_tags,
             language,
             theme_mode,

@@ -224,6 +224,7 @@ impl ImageViewerApp {
             show_recycle_bin,
             show_quick_access,
             quick_access_placement,
+            auto_expand_folder_tree,
             show_tags,
             language,
             theme_mode,
@@ -273,6 +274,9 @@ impl ImageViewerApp {
 
         // Load Quick Access pinned folders from database
         let pinned_folders = app_state_db.get_all_pinned_folders();
+
+        // Load saved tab groups from database
+        let folder_groups = app_state_db.get_all_folder_groups();
 
         // Load file tag metadata and path assignments once at startup.
         let tag_definitions: rustc_hash::FxHashMap<_, _> = app_state_db
@@ -525,6 +529,7 @@ impl ImageViewerApp {
             startup_custom_path,
             tab_preferences,
             quick_access_placement, // Loaded from SQLite
+            auto_expand_folder_tree, // Loaded from SQLite
             show_tags,              // Loaded from SQLite
             collapse_quick_access: false,
             collapse_cloud_drives: false,
@@ -870,6 +875,10 @@ impl ImageViewerApp {
             pending_pinned_navigation: None,
 
             pinned_folders,
+
+            folder_groups,
+            save_group_name: String::new(),
+            show_save_group_dialog: false,
 
             tag_definitions,
             sorted_tag_ids,

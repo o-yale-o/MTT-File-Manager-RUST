@@ -38,7 +38,14 @@ pub(crate) fn render_quick_access_bar_layer(app: &mut ImageViewerApp, root_ui: &
     let mut pin_current_path = None;
     let mut cancel_drag_on_bar = false;
     let mut drop_to_recycle_bin = false;
+    let mut open_group = None;
+    let mut delete_group = None;
     let can_drop_items_to_recycle_bin = app.can_drop_drag_payload_to_recycle_bin();
+    let group_items: Vec<(i64, String, usize)> = app
+        .folder_groups
+        .iter()
+        .map(|group| (group.id, group.name.clone(), group.paths.len()))
+        .collect();
 
     egui::Panel::top("quick_access_bar")
         .show_separator_line(false)
@@ -285,6 +292,32 @@ pub(crate) fn render_quick_access_bar_layer(app: &mut ImageViewerApp, root_ui: &
                             }
                         }
 
+                        // Saved tab groups: click opens the whole group.
+                        for (group_id, name, path_count) in &group_items {
+                            let visible_label = chip_label(ui, &format!("🗂 {name}"));
+                            let (rect, response) = ui
+                                .allocate_exact_size(egui::vec2(CHIP_WIDTH, 26.0), Sense::click());
+                            paint_chip(ui, rect, &visible_label, None, false, response.hovered());
+                            let response = response.on_hover_text(format!(
+                                "{} ({})",
+                                name,
+                                t!("sidebar.group_open_all_count", count = path_count)
+                            ));
+                            if response.clicked() {
+                                open_group = Some(*group_id);
+                            }
+                            response.context_menu(|ui| {
+                                if ui.button(t!("sidebar.group_open_all")).clicked() {
+                                    open_group = Some(*group_id);
+                                    ui.close();
+                                }
+                                if ui.button(t!("sidebar.group_delete")).clicked() {
+                                    delete_group = Some(*group_id);
+                                    ui.close();
+                                }
+                            });
+                        }
+
                         if let Some(source) = drag_src {
                             if pointer_over_item.is_none()
                                 && !pointer_over_recycle_bin
@@ -402,6 +435,12 @@ pub(crate) fn render_quick_access_bar_layer(app: &mut ImageViewerApp, root_ui: &
     }
     if let Some(path) = pin_current_path {
         app.pin_folder(&path);
+    }
+    if let Some(group_id) = open_group {
+        app.open_folder_group(group_id);
+    }
+    if let Some(group_id) = delete_group {
+        app.delete_folder_group(group_id);
     }
     if let Some(path) = context_menu_path {
         let path_buf = std::path::PathBuf::from(path);

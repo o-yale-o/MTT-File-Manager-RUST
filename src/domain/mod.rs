@@ -8,6 +8,7 @@ pub mod errors;
 pub mod file_entry;
 pub mod file_tag;
 pub mod folder_appearance;
+pub mod folder_group;
 pub mod folder_lock;
 pub mod folder_preview_validity;
 mod group_mode;

@@ -95,6 +95,10 @@ sidebar:
   eject_drive: "弹出已挂载的ISO"
   collapse_section: "折叠分区"
   expand_section: "展开分区"
+  group_open_all: "打开全部"
+  group_open_all_count: "%{count} 个文件夹"
+  group_delete: "删除分组"
+  group_name_exists: "已存在同名分组。"
 tags:
   browser_search: "搜索标签或文件夹…"
   browser_select: "选择项目以查看或编辑详情。"
@@ -1276,6 +1280,7 @@ notifications:
 tabs:
   expand_folder_tree: "展开文件夹目录树"
   collapse_folder_tree: "折叠文件夹目录树"
+  auto_expand_folder_tree: "自动展开文件夹目录树"
   detaching: "正在将标签页移至新窗口…"
   detach_failed: "无法打开新窗口。标签页已保留在此窗口中。"
   close: "关闭标签页"
@@ -1288,6 +1293,11 @@ tabs:
   max_reached: "已达到标签上限（最多%{max}个），请关闭一个标签再打开新页面。"
   panel_new: "新建面板标签页"
   panel_close: "关闭面板标签页"
+  save_group: "收藏所有页签为分组…"
+  save_group_title: "收藏页签分组"
+  save_group_count: "将把当前 %{count} 个页签的文件夹保存到该分组。"
+  group_default_name: "新分组"
+  group_name_required: "分组名称不能为空。"
 disk_analysis:
   analyze: "分析磁盘占用"
   title: "磁盘占用分析"

@@ -113,6 +113,7 @@ fn with_sidebar_tree<R>(
         is_renaming: false,
         icon_loader: &mut icons,
         pinned_folders: &pinned,
+        folder_groups: &[],
         is_item_dragging: false,
         can_drop_items_to_recycle_bin: false,
         is_folder_dragging: false,

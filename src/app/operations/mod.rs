@@ -39,6 +39,7 @@ pub mod file_hash;
 pub(crate) mod file_operation_policy;
 pub mod file_ops;
 pub mod folder_access;
+pub mod folder_group_ops;
 pub mod folder_loading;
 pub mod folder_lock_ops;
 mod folder_timestamps;

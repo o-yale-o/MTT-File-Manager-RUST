@@ -221,6 +221,15 @@ impl ImageViewerApp {
             .to_string(),
         ));
         prefs.push((
+            "auto_expand_folder_tree",
+            (if self.auto_expand_folder_tree {
+                "true"
+            } else {
+                "false"
+            })
+            .to_string(),
+        ));
+        prefs.push((
             "minimize_to_tray",
             if self.minimize_to_tray {
                 "true"

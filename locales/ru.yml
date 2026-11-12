@@ -95,6 +95,10 @@ sidebar:
   eject_drive: "Извлечь смонтированный образ ISO"
   collapse_section: "Свернуть раздел"
   expand_section: "Развернуть раздел"
+  group_open_all: "Открыть все"
+  group_open_all_count: "%{count} папка(и)"
+  group_delete: "Удалить группу"
+  group_name_exists: "Группа с таким именем уже существует."
 tags:
   browser_search: "Поиск тегов или папок…"
   browser_select: "Выберите элемент для просмотра или изменения его свойств."
@@ -1276,6 +1280,7 @@ notifications:
 tabs:
   expand_folder_tree: "Развернуть дерево папки"
   collapse_folder_tree: "Свернуть дерево папки"
+  auto_expand_folder_tree: "Автоматически разворачивать дерево папки"
   detaching: "Перемещение вкладки в новое окно…"
   detach_failed: "Не удалось открыть новое окно. Вкладка сохранена в этом окне."
   close: "Закрыть вкладку"
@@ -1288,6 +1293,11 @@ tabs:
   max_reached: "Достигнут предел вкладок (%{max}). Закройте вкладку, чтобы открыть другую."
   panel_new: "Новая вкладка панели"
   panel_close: "Закрыть вкладку панели"
+  save_group: "Сохранить все вкладки как группу…"
+  save_group_title: "Сохранить группу вкладок"
+  save_group_count: "Папки %{count} открытых вкладок будут сохранены в эту группу."
+  group_default_name: "Новая группа"
+  group_name_required: "Имя группы не может быть пустым."
 disk_analysis:
   analyze: "Анализ использования диска"
   title: "Использование диска"

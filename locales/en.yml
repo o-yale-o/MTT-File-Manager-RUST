@@ -95,6 +95,10 @@ sidebar:
   eject_drive: "Eject mounted ISO"
   collapse_section: "Collapse section"
   expand_section: "Expand section"
+  group_open_all: "Open all"
+  group_open_all_count: "%{count} folder(s)"
+  group_delete: "Delete group"
+  group_name_exists: "A group with this name already exists."
 tags:
   browser_search: "Search tags or folders…"
   browser_select: "Select an item to view or edit its details."
@@ -1280,6 +1284,7 @@ notifications:
 tabs:
   expand_folder_tree: "Expand folder tree"
   collapse_folder_tree: "Collapse folder tree"
+  auto_expand_folder_tree: "Auto-expand folder tree"
   detaching: "Moving tab to a new window…"
   detach_failed: "Could not open the new window. The tab was kept in this window."
   close: "Close tab"
@@ -1292,6 +1297,11 @@ tabs:
   max_reached: "Tab limit (%{max}) reached. Close a tab to open another."
   panel_new: "New panel tab"
   panel_close: "Close panel tab"
+  save_group: "Save all tabs as group…"
+  save_group_title: "Save tab group"
+  save_group_count: "The folders of %{count} open tab(s) will be saved into this group."
+  group_default_name: "New group"
+  group_name_required: "Group name cannot be empty."
 
 disk_analysis:
   analyze: "Analyze disk usage"

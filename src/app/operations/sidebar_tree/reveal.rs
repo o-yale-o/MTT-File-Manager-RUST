@@ -91,6 +91,35 @@ impl ImageViewerApp {
         self.ui_ctx.request_repaint();
     }
 
+    /// Checked "auto-expand folder tree" preference: reveal the active tab's
+    /// current folder every frame it is not revealed yet. Runs after
+    /// navigation, back/forward, tab switches and group opens alike; the
+    /// undo-record check makes it a no-op while the reveal is already active.
+    pub(crate) fn auto_reveal_active_tab(&mut self) {
+        if !self.auto_expand_folder_tree || self.in_inactive_panel_context {
+            return;
+        }
+        let path = self.navigation_state.current_path.clone();
+        if path.is_empty() || crate::domain::special_paths::is_virtual_path(&path) {
+            return;
+        }
+        let owner = crate::app::state::sidebar_tree_state::reveal::RevealOwner::workspace(
+            self.tab_manager.active().id,
+        )
+        .in_sidebar(self.tab_manager.active().id);
+        if self
+            .sidebar_tree
+            .can_undo_tab_reveal(owner, Path::new(&path))
+        {
+            return;
+        }
+        self.apply_tab_tree_action(
+            owner,
+            &path,
+            crate::tabs::TabAction::ExpandFolderTree,
+        );
+    }
+
     /// A pending reveal may belong to an inactive tab. Validate its owner,
     /// not the path displayed by the currently active content pane.
     pub(crate) fn validate_tab_tree_reveals(&mut self) {

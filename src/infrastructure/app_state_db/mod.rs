@@ -19,6 +19,7 @@ mod conditional_preferences;
 mod file_entry_cache;
 mod file_tags;
 mod folder_covers;
+mod folder_groups;
 mod folder_locks;
 pub(crate) mod gc;
 mod organizer_conflict_registration;
@@ -335,6 +336,27 @@ impl AppStateDb {
                 path TEXT PRIMARY KEY,
                 display_name TEXT NOT NULL,
                 position INTEGER NOT NULL DEFAULT 0
+            )",
+            [],
+        )
+        .unwrap_or(0);
+
+        // Saved tab groups and their folder paths (Quick Access "open all")
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS folder_groups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                position INTEGER NOT NULL DEFAULT 0
+            )",
+            [],
+        )
+        .unwrap_or(0);
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS folder_group_paths (
+                group_id INTEGER NOT NULL,
+                path TEXT NOT NULL,
+                position INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (group_id, path)
             )",
             [],
         )

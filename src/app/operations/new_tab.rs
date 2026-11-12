@@ -44,6 +44,15 @@ impl ImageViewerApp {
         self.open_locations_in_new_tabs(panel, &[path.to_owned()], ctrl);
     }
 
+    /// Opens saved folder-group paths as new tabs in the main tab strip,
+    /// keeping the currently active tab focused.
+    pub(crate) fn open_paths_in_main_tabs(&mut self, paths: &[String]) {
+        if paths.is_empty() || self.tab_navigation_blocked() {
+            return;
+        }
+        self.open_main_tabs(paths, false);
+    }
+
     fn open_location_in_main_tab(&mut self, path: &str) {
         if self.tab_navigation_blocked() {
             return;

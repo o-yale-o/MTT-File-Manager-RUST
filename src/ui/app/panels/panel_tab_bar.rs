@@ -59,6 +59,7 @@ pub(super) fn render_panel_tab_bar(
     tree_state: &crate::app::state::sidebar_tree_state::SidebarTreeState,
     is_item_dragging: bool,
     can_add_tab: bool,
+    auto_expand_tree: bool,
     computer_icon: Option<&egui::TextureHandle>,
     svg_icons: &mut SvgIconManager,
     icon_loader: &mut IconLoader,
@@ -345,6 +346,8 @@ pub(super) fn render_panel_tab_bar(
                                                 path,
                                             ),
                                             can_reopen: None,
+                                            can_save_group: false,
+                                            auto_expand_tree: auto_expand_tree,
                                             },
                                         )
                                     {

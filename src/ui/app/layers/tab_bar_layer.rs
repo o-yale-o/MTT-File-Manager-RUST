@@ -50,6 +50,7 @@ pub(crate) fn render_tab_bar_layer(
                 playing,
                 muted,
                 app.is_item_dragging,
+                app.auto_expand_folder_tree,
             );
 
             match action {

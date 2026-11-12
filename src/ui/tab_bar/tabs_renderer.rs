@@ -22,6 +22,7 @@ pub(super) fn render_tabs(
     is_playing: bool,
     is_muted: bool,
     is_item_dragging: bool,
+    auto_expand_tree: bool,
     ideal_tab_width: f32,
     tab_height: f32,
     tab_padding: f32,
@@ -358,6 +359,8 @@ pub(super) fn render_tabs(
                         if is_active { live_path } else { &tab.path },
                     ),
                     can_reopen: Some(tab_manager.can_reopen_closed_tab()),
+                    can_save_group: true,
+                    auto_expand_tree,
                 },
             ) {
                 action = TabBarAction::Context(idx, command);

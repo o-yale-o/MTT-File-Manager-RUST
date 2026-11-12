@@ -798,6 +798,15 @@ pub struct ImageViewerApp {
     // Quick Access pinned folders (ordered by position)
     pub pinned_folders: Vec<crate::domain::pinned_folder::PinnedFolder>,
 
+    // Saved tab groups shown under Quick Access ("open all" restores the tabs)
+    pub folder_groups: Vec<crate::domain::folder_group::FolderGroup>,
+    /// Checked once in the tab context menu: reveal the sidebar tree to the
+    /// current folder on every navigation, like Explorer's auto-expand.
+    pub auto_expand_folder_tree: bool,
+    /// "Save all tabs as a group" dialog: the editable group name while open.
+    pub save_group_name: String,
+    pub show_save_group_dialog: bool,
+
     // File tags / color labels (persistent metadata keyed by path)
     pub tag_definitions: rustc_hash::FxHashMap<i64, crate::domain::file_tag::FileTag>,
     /// Snapshot of tag IDs in depth-first pre-order: roots ordered by

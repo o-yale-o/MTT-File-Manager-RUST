@@ -60,6 +60,7 @@ pub fn render_tab_bar(
     is_playing: bool,
     is_muted: bool,
     is_item_dragging: bool,
+    auto_expand_tree: bool,
 ) -> TabBarAction {
     let ctx = ui.ctx().clone();
     let mut action = TabBarAction::None;
@@ -128,6 +129,7 @@ pub fn render_tab_bar(
             is_playing,
             is_muted,
             is_item_dragging,
+            auto_expand_tree,
             ideal_tab_width,
             tab_height,
             tab_padding,
