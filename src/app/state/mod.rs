@@ -803,6 +803,9 @@ pub struct ImageViewerApp {
     /// Checked once in the tab context menu: reveal the sidebar tree to the
     /// current folder on every navigation, like Explorer's auto-expand.
     pub auto_expand_folder_tree: bool,
+    /// Location the auto-expand already reacted to; reveal is event-driven
+    /// (fires on location change only, never per frame).
+    pub auto_reveal_last_path: String,
     /// "Save all tabs as a group" dialog: the editable group name while open.
     pub save_group_name: String,
     pub show_save_group_dialog: bool,

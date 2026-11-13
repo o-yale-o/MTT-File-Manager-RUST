@@ -535,6 +535,7 @@ impl ImageViewerApp {
             tab_preferences,
             quick_access_placement, // Loaded from SQLite
             auto_expand_folder_tree, // Loaded from SQLite
+            auto_reveal_last_path: String::new(),
             show_tags,              // Loaded from SQLite
             collapse_quick_access: false,
             collapse_cloud_drives: false,

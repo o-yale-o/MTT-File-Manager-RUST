@@ -91,33 +91,60 @@ impl ImageViewerApp {
         self.ui_ctx.request_repaint();
     }
 
-    /// Checked "auto-expand folder tree" preference: reveal the active tab's
-    /// current folder every frame it is not revealed yet. Runs after
-    /// navigation, back/forward, tab switches and group opens alike; the
-    /// undo-record check makes it a no-op while the reveal is already active.
+    /// Checked "auto-expand folder tree" preference. Event-driven: it reacts
+    /// once per location change (navigation, tab switch, group open) and then
+    /// stays idle until the location changes again — never per frame, and
+    /// never while a rename editor or any other focused widget holds the
+    /// location steady.
     pub(crate) fn auto_reveal_active_tab(&mut self) {
         if !self.auto_expand_folder_tree || self.in_inactive_panel_context {
             return;
         }
         let path = self.navigation_state.current_path.clone();
-        if path.is_empty() || crate::domain::special_paths::is_virtual_path(&path) {
+        if path.is_empty() || path == self.auto_reveal_last_path {
+            return;
+        }
+        self.auto_reveal_last_path = path.clone();
+        if crate::domain::special_paths::is_virtual_path(&path) {
+            return;
+        }
+        let Some((root, _section)) = self.sidebar_reveal_destination(&path) else {
+            return;
+        };
+        // The branch is already fully expanded in the tree — nothing to open.
+        if self.tree_chain_fully_expanded(&root, Path::new(&path)) {
             return;
         }
         let owner = crate::app::state::sidebar_tree_state::reveal::RevealOwner::workspace(
             self.tab_manager.active().id,
         )
         .in_sidebar(self.tab_manager.active().id);
-        if self
-            .sidebar_tree
-            .can_undo_tab_reveal(owner, Path::new(&path))
-        {
-            return;
-        }
         self.apply_tab_tree_action(
             owner,
             &path,
             crate::tabs::TabAction::ExpandFolderTree,
         );
+    }
+
+    /// True when every node from `root` down to the parent of `target` is
+    /// expanded, i.e. the tree already shows the branch containing `target`.
+    fn tree_chain_fully_expanded(&self, root: &Path, target: &Path) -> bool {
+        let mut node = match target.parent() {
+            Some(parent) => parent.to_path_buf(),
+            None => return true,
+        };
+        loop {
+            if !self.sidebar_tree.is_expanded(&node) {
+                return false;
+            }
+            if crate::app::state::sidebar_tree_state::reveal::same_path(&node, root) {
+                return true;
+            }
+            match node.parent() {
+                Some(parent) => node = parent.to_path_buf(),
+                None => return false,
+            }
+        }
     }
 
     /// A pending reveal may belong to an inactive tab. Validate its owner,
