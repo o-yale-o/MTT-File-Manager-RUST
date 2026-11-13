@@ -297,6 +297,11 @@ fn run_main_app_attempt(
         Box::new(move |cc| {
             app_started_in_creator.set(true);
             let app_new_start = Instant::now();
+            // Load the core UI fonts synchronously before the first frame so
+            // CJK text renders immediately instead of showing tofu boxes for
+            // the first 1-2 seconds. The background loader replaces this with
+            // the full locale set and the user's selected UI font later.
+            mtt_file_manager::ui::fonts::apply_startup_fonts(&cc.egui_ctx);
             let app = ImageViewerApp::new_with_startup_folder(cc, startup_folder.clone());
             log::info!(
                 "[STARTUP] ImageViewerApp initialization elapsed_ms={}",

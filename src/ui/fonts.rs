@@ -43,9 +43,67 @@ fn hinted_font(data: Vec<u8>, index: u32) -> egui::FontData {
     font
 }
 
+/// One font file → hinted FontData, registered under `key`. Best-effort.
+fn load_font_file(fonts: &mut egui::FontDefinitions, key: &str, file: &str) -> bool {
+    let Some(fonts_dir) = std::env::var_os("WINDIR")
+        .map(std::path::PathBuf::from)
+        .map(|windows_dir| windows_dir.join("Fonts"))
+    else {
+        return false;
+    };
+    let Ok(data) = std::fs::read(fonts_dir.join(file)) else {
+        return false;
+    };
+    // Fit stems to physical pixels rather than preserving fractional
+    // outlines. This matters most for small UI text on low-DPI screens.
+    fonts
+        .font_data
+        .insert(key.to_owned(), std::sync::Arc::new(hinted_font(data, 0)));
+    true
+}
+
+/// Minimal synchronous startup set: Latin UI text plus the Chinese fallback,
+/// so the very first frame renders CJK instead of tofu boxes. The background
+/// loader replaces this with the full locale set + font catalog moments later.
+/// Only two files (~20 MB) instead of every CJK locale keeps window creation
+/// fast; other locales degrade to the previous 1-2 s fallback window.
+pub fn install_startup_fonts(fonts: &mut egui::FontDefinitions) {
+    let loaded_segoe = load_font_file(fonts, "segoe_ui", "segoeui.ttf");
+    let loaded_yahei = load_font_file(fonts, "ms_yahei", "msyh.ttc");
+    if !(loaded_segoe || loaded_yahei) {
+        return;
+    }
+    if let Some(proportional) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+        if loaded_segoe {
+            proportional.insert(0, "segoe_ui".to_owned());
+        }
+        if loaded_yahei {
+            proportional.push("ms_yahei".to_owned());
+        }
+    }
+}
+
+/// Applies the synchronous startup font set to the context before the first
+/// frame (called from the eframe app creator in main.rs).
+pub fn apply_startup_fonts(ctx: &egui::Context) {
+    let mut fonts = egui::FontDefinitions::default();
+    fonts.font_data.insert(
+        "remix_icon".to_owned(),
+        std::sync::Arc::new(egui::FontData::from_static(crate::embedded_assets::REMIXICON_TTF)),
+    );
+    let mut icon_fonts = vec!["remix_icon".to_owned()];
+    if let Some(proportional) = fonts.families.get(&egui::FontFamily::Proportional) {
+        icon_fonts.extend(proportional.iter().cloned());
+    }
+    fonts
+        .families
+        .insert(egui::FontFamily::Name("icons".into()), icon_fonts);
+    install_startup_fonts(&mut fonts);
+    ctx.set_fonts(fonts);
+}
+
 /// Loads the Windows system fonts into `fonts` and registers them as fallbacks
 /// in the proportional and monospace families.
-///
 /// Adds Segoe UI / Segoe UI Symbol plus one font per major CJK locale, so
 /// Simplified Chinese, Traditional Chinese, Japanese, and Korean render.
 /// Best-effort: missing files are skipped, and `fonts` is left untouched when
