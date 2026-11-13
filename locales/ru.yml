@@ -220,6 +220,8 @@ status_bar:
   processing: "Обработка %{done}/%{total}"
   hidden_hide: "Скрыть скрытые элементы"
   hidden_show: "Показать скрытые элементы"
+  preview_hide: "Скрыть сведения"
+  preview_show: "Показать сведения"
   settings: "Открыть настройки приложения"
   thumbnail_size: "Размер миниатюры"
   vdrive_settings: "Настроить оптимизацию виртуального диска"

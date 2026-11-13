@@ -220,6 +220,8 @@ status_bar:
   processing: "Processing %{done}/%{total}"
   hidden_hide: "Hide hidden items"
   hidden_show: "Show hidden items"
+  preview_hide: "Hide details"
+  preview_show: "Show details"
   settings: "Open application settings"
   thumbnail_size: "Thumbnail size"
   vdrive_settings: "Configure virtual drive optimization"

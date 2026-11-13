@@ -407,6 +407,11 @@ impl ImageViewerApp {
                 active.view_mode = saved_dual_panel_active_view_mode;
             }
         }
+        // Preview panel visibility is global: one setting for every tab, so
+        // restored sessions converge on the persisted value.
+        for tab in &mut tab_manager.tabs {
+            tab.show_preview_panel = show_preview_panel;
+        }
         tab_manager.restore_tag_titles(&tag_definitions);
         let initial_tab = tab_manager.active();
         let initial_sort_mode = initial_tab.sort_mode;

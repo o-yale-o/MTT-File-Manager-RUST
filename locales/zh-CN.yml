@@ -220,6 +220,8 @@ status_bar:
   processing: "正在处理 %{done}/%{total}"
   hidden_hide: "隐藏隐藏项目"
   hidden_show: "显示隐藏项目"
+  preview_hide: "隐藏详细信息"
+  preview_show: "显示详细信息"
   settings: "打开应用设置"
   thumbnail_size: "缩略图大小"
   vdrive_settings: "配置虚拟驱动器优化"

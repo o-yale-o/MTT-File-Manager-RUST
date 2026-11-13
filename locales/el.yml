@@ -220,6 +220,8 @@ status_bar:
   processing: "Επεξεργασία %{done}/%{total}"
   hidden_hide: "Απόκρυψη κρυφών στοιχείων"
   hidden_show: "Εμφάνιση κρυφών στοιχείων"
+  preview_hide: "Απόκρυψη λεπτομερειών"
+  preview_show: "Εμφάνιση λεπτομερειών"
   settings: "Άνοιγμα ρυθμίσεων εφαρμογής"
   thumbnail_size: "Μέγεθος μικρογραφίας"
   vdrive_settings: "Διαμόρφωση βελτιστοποίησης εικονικών δίσκων"

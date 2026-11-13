@@ -246,6 +246,8 @@ pub enum StatusBarAction {
     ClearSelection,
     /// Invert selection in the active panel's current listing
     InvertSelection,
+    /// Preview panel visibility toggled
+    TogglePreviewPanel,
     /// No action
     None,
 }
@@ -264,6 +266,7 @@ pub fn render_status_bar(
     is_recycle_bin_view: bool,
     bulk_scan_active: bool,
     show_hidden_files: &mut bool,
+    show_preview_panel: bool,
     view_mode: ViewMode,
     thumbnail_size: &mut f32,
     interface_scale: &mut f32,
@@ -387,6 +390,29 @@ pub fn render_status_bar(
                         action = StatusBarAction::ShowHiddenChanged;
                     }
                 });
+            }
+
+            // === PREVIEW PANEL TOGGLE (right of the hidden-files toggle) ===
+            {
+                let tooltip = if show_preview_panel {
+                    t!("status_bar.preview_hide")
+                } else {
+                    t!("status_bar.preview_show")
+                };
+                if widgets::toggle_icon_button_sized(
+                    ui,
+                    svg_manager,
+                    "info",
+                    show_preview_panel,
+                    &tooltip,
+                    theme::ICON_SIZE_SM,
+                    1.0,
+                    0.75,
+                )
+                .clicked()
+                {
+                    action = StatusBarAction::TogglePreviewPanel;
+                }
             }
 
             ui.separator();

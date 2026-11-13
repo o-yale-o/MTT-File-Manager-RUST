@@ -110,6 +110,7 @@ pub(crate) fn render_status_bar_layer(app: &mut ImageViewerApp, root_ui: &mut eg
                 app.navigation_state.is_recycle_bin_view,
                 bulk_active || is_scanning,
                 &mut app.show_hidden_files,
+                app.show_preview_panel,
                 app.view_mode,
                 &mut app.thumbnail_size,
                 &mut app.interface_scale,
@@ -276,6 +277,18 @@ pub(crate) fn render_status_bar_layer(app: &mut ImageViewerApp, root_ui: &mut eg
                         app.load_folder(true);
                     }
                     app.sidebar_tree.set_show_hidden(app.show_hidden_files);
+                }
+                StatusBarAction::TogglePreviewPanel => {
+                    // Global visibility: one switch covers every tab.
+                    app.show_preview_panel = !app.show_preview_panel;
+                    for tab in &mut app.tab_manager.tabs {
+                        tab.show_preview_panel = app.show_preview_panel;
+                    }
+                    if app.show_preview_panel && app.needs_selected_preview_preparation() {
+                        app.update_selected_thumbnail();
+                    }
+                    app.update_video_visibility();
+                    app.save_preferences();
                 }
                 StatusBarAction::ClearTagFilter => app.set_tag_filter(None),
                 StatusBarAction::SelectAll => {

@@ -150,12 +150,16 @@ pub(crate) fn render_toolbar_layer(app: &mut ImageViewerApp, root_ui: &mut egui:
                         );
                     }
                     ToolbarAction::TogglePreviewPanel => {
+                        // Global visibility: one switch covers every tab.
                         app.show_preview_panel = !app.show_preview_panel;
-                        app.tab_manager.active_mut().show_preview_panel = app.show_preview_panel;
+                        for tab in &mut app.tab_manager.tabs {
+                            tab.show_preview_panel = app.show_preview_panel;
+                        }
                         if app.show_preview_panel && app.needs_selected_preview_preparation() {
                             app.update_selected_thumbnail();
                         }
                         app.update_video_visibility();
+                        app.save_preferences();
                     }
                     ToolbarAction::ChangeSortMode(mode) => {
                         app.change_sort_mode(mode);
