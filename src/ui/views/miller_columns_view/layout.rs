@@ -8,7 +8,7 @@ pub const ANCESTOR_COL_WIDTH: f32 = 240.0;
 /// columns to emphasize focus; renders the current directory (name-only).
 pub const FOCUSED_COL_WIDTH: f32 = 280.0;
 /// Row height for the compact ancestor columns.
-pub const COL_ROW_HEIGHT: f32 = 24.0;
+pub const COL_ROW_HEIGHT: f32 = 30.0;
 
 /// Compute the ancestor chain from the drive root down to `current_path`
 /// (inclusive), root first. Empty components are dropped.

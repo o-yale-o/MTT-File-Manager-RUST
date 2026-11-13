@@ -80,7 +80,7 @@ pub(super) fn render_row(
     rename_update: &mut Option<MillerRenameUpdate>,
 ) -> Option<MillerColumnAction> {
     let width = ui.available_width();
-    let row_height = crate::ui::fonts::layout::row_height(ui, COL_ROW_HEIGHT, 13.0, 6.0);
+    let row_height = crate::ui::fonts::layout::row_height(ui, COL_ROW_HEIGHT, 13.0, 8.0);
     let (row_rect, response) =
         ui.allocate_exact_size(egui::vec2(width, row_height), Sense::click_and_drag());
     let is_selected = crate::ui::views::common::effective_item_selection(
@@ -191,9 +191,11 @@ pub(super) fn render_row(
     let text_x = icon_x + ICON_SIZE + 6.0;
     if let Some((_, rename_text)) = ctx.renaming_state.filter(|(path, _)| *path == item.path) {
         let mut text = rename_text.clone();
-        let edit_rect = Rect::from_min_max(
-            egui::pos2(text_x, row_rect.top() + 2.0),
-            egui::pos2(row_rect.right() - 5.0, row_rect.bottom() - 2.0),
+        // Rename editor: one text line tall, vertically centered in the row.
+        let edit_height = crate::ui::fonts::layout::row_height(ui, 22.0, 12.0, 6.0);
+        let edit_rect = Rect::from_min_size(
+            egui::pos2(text_x, row_rect.center().y - edit_height / 2.0),
+            egui::vec2(row_rect.right() - 5.0 - text_x, edit_height),
         );
         let mut commit = false;
         ui.scope_builder(egui::UiBuilder::new().max_rect(edit_rect), |ui| {

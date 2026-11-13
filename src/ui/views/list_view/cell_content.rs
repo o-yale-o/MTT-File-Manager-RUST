@@ -148,7 +148,7 @@ pub(super) fn render(
         if cell.id == ColumnId::Status {
             super::helpers::render_status_badge(
                 ui,
-                rect.min + egui::vec2(8.0, 4.0),
+                Pos2::new(rect.left() + 8.0, rect.center().y - 8.0),
                 item.sync_status,
             );
         } else {
@@ -156,8 +156,8 @@ pub(super) fn render(
             let font = FontId::proportional(12.0);
             let display = truncate_text_for_column(&value, cell.width - 8.0, &font, ui);
             ui.painter().text(
-                rect.min + egui::vec2(0.0, 5.0),
-                egui::Align2::LEFT_TOP,
+                Pos2::new(rect.left(), rect.center().y),
+                egui::Align2::LEFT_CENTER,
                 display,
                 font,
                 color,
@@ -176,8 +176,11 @@ pub(super) fn contains(
     point: Pos2,
 ) -> bool {
     let name_start = row.min + egui::vec2(widths.name_offset, 0.0);
-    if Rect::from_min_size(name_start + egui::vec2(2.0, 2.0), egui::vec2(20.0, 20.0))
-        .contains(point)
+    if Rect::from_center_size(
+        Pos2::new(name_start.x + 12.0, row.center().y),
+        egui::vec2(20.0, 20.0),
+    )
+    .contains(point)
     {
         return true;
     }

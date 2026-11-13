@@ -19,7 +19,7 @@ pub fn render_miller_column(
 ) -> MillerColumnOutput {
     let dark = ui.visuals().dark_mode;
     let rect = ui.max_rect();
-    let row_height = crate::ui::fonts::layout::row_height(ui, COL_ROW_HEIGHT, 13.0, 6.0);
+    let row_height = crate::ui::fonts::layout::row_height(ui, COL_ROW_HEIGHT, 13.0, 8.0);
     let column_id = ui.make_persistent_id(id_salt);
     let background_response =
         ui.interact(rect, column_id.with("background"), Sense::click_and_drag());

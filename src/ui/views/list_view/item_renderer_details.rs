@@ -202,7 +202,7 @@ pub(crate) fn render_item_icon(
     let icon_rect = snap_rect_to_physical_pixels(
         ui.ctx(),
         Rect::from_min_size(
-            rect.min + egui::vec2(4.0, 4.0),
+            Pos2::new(rect.left() + 4.0, rect.center().y - icon_size_px / 2.0),
             egui::vec2(icon_size_px, icon_size_px),
         ),
     );

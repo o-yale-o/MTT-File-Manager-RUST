@@ -302,7 +302,10 @@ fn column_item_content_contains_pointer(
     ctx: &ListViewContext,
     point: Pos2,
 ) -> bool {
-    let icon_rect = Rect::from_min_size(rect.min + egui::vec2(4.0, 4.0), egui::vec2(16.0, 16.0));
+    let icon_rect = Rect::from_center_size(
+        Pos2::new(rect.left() + 12.0, rect.center().y),
+        egui::vec2(16.0, 16.0),
+    );
     if icon_rect.expand(2.0).contains(point) {
         return true;
     }
@@ -371,9 +374,14 @@ fn render_column_item_name(
             .as_ref()
             .map(|(_, text)| text.clone())
             .unwrap_or_default();
+        // Rename editor: one text line tall, vertically centered in the row.
+        let edit_height = crate::ui::fonts::layout::row_height(ui, 22.0, 12.0, 6.0);
         let edit_rect = Rect::from_min_size(
-            rect.min + egui::vec2(24.0 + tag_offset, 2.0),
-            egui::vec2(COLUMN_WIDTH - 32.0 - tag_offset, rect.height() - 4.0),
+            Pos2::new(
+                rect.left() + 24.0 + tag_offset,
+                rect.center().y - edit_height / 2.0,
+            ),
+            egui::vec2(COLUMN_WIDTH - 32.0 - tag_offset, edit_height),
         );
         ui.scope_builder(egui::UiBuilder::new().max_rect(edit_rect), |ui| {
             let response = ui.add(
@@ -432,8 +440,8 @@ fn render_column_item_name(
     }
     .gamma_multiply(opacity);
     ui.painter().text(
-        rect.min + egui::vec2(24.0 + tag_offset, 5.0),
-        egui::Align2::LEFT_TOP,
+        Pos2::new(rect.left() + 24.0 + tag_offset, rect.center().y),
+        egui::Align2::LEFT_CENTER,
         display_name,
         font,
         color,

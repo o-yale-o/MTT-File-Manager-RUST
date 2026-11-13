@@ -50,6 +50,13 @@ pub(super) fn render(
             row.height() - 4.0,
         ),
     );
+    // Rename editor: one text line tall, vertically centered in the row so
+    // the top/bottom whitespace stays equal and never touches the outline.
+    let edit_height = crate::ui::fonts::layout::row_height(ui, 22.0, 12.0, 6.0);
+    let edit_rect = Rect::from_min_size(
+        Pos2::new(name_rect.left(), rect.center().y - edit_height / 2.0),
+        egui::vec2(name_rect.width(), edit_height),
+    );
     if !ctx.is_recycle_bin_view
         && !ctx.global_search_active
         && ctx.renaming_state.is_none()
@@ -72,7 +79,7 @@ pub(super) fn render(
     if renaming {
         if let Some((_, rename_text)) = &ctx.renaming_state {
             let mut text = rename_text.clone();
-            ui.scope_builder(egui::UiBuilder::new().max_rect(name_rect), |ui| {
+            ui.scope_builder(egui::UiBuilder::new().max_rect(edit_rect), |ui| {
                 let response = ui.add(
                     egui::TextEdit::singleline(&mut text)
                         .horizontal_align(egui::Align::Min)
@@ -121,8 +128,8 @@ pub(super) fn render(
         let name = crate::ui::components::item_slot::display_name_for_item(item);
         let display = truncate_text_for_column(&name, name_rect.width(), &font, ui);
         ui.painter().text(
-            rect.min + egui::vec2(24.0 + tag_offset, 5.0),
-            egui::Align2::LEFT_TOP,
+            Pos2::new(rect.left() + 24.0 + tag_offset, rect.center().y),
+            egui::Align2::LEFT_CENTER,
             display,
             font,
             text_color,

@@ -1,4 +1,4 @@
-pub const ROW_HEIGHT: f32 = 24.0;
+pub const ROW_HEIGHT: f32 = 30.0;
 pub const COLUMN_WIDTH: f32 = 280.0;
 pub const SCROLLBAR_HEIGHT: f32 = 14.0;
 
@@ -115,7 +115,8 @@ mod tests {
 
     #[test]
     fn fills_each_column_top_to_bottom() {
-        let layout = calculate_layout(10, 300.0, 86.0, ROW_HEIGHT);
+        // Height accounts for the horizontal scrollbar so three rows survive.
+        let layout = calculate_layout(10, 300.0, 3.0 * ROW_HEIGHT + SCROLLBAR_HEIGHT, ROW_HEIGHT);
         assert_eq!(layout.rows_per_column, 3);
         assert_eq!(layout.column_count, 4);
         assert_eq!(7 / layout.rows_per_column, 2);
@@ -124,24 +125,28 @@ mod tests {
 
     #[test]
     fn omits_scrollbar_when_all_columns_fit() {
-        let layout = calculate_layout(4, 500.0, 100.0, ROW_HEIGHT);
+        let layout = calculate_layout(4, 500.0, 4.0 * ROW_HEIGHT, ROW_HEIGHT);
         assert!(!layout.has_horizontal_scrollbar);
         assert_eq!(layout.column_count, 1);
     }
 
     #[test]
     fn grouped_layout_starts_each_group_in_a_new_column() {
-        let layout = calculate_grouped_layout(&[2, 2], 900.0, 240.0, ROW_HEIGHT);
-        assert_eq!(layout.rows_per_column, 10);
+        let layout = calculate_grouped_layout(&[2, 2], 900.0, 2.0 * ROW_HEIGHT, ROW_HEIGHT);
+        assert_eq!(layout.rows_per_column, 2);
         assert_eq!(layout.column_count, 2);
     }
 
     #[test]
     fn taller_rows_change_column_geometry_consistently() {
-        let normal = calculate_layout(30, 300.0, 240.0, ROW_HEIGHT);
-        let larger = calculate_layout(30, 300.0, 240.0, 36.0);
+        let larger = ROW_HEIGHT + 6.0;
+        let normal = calculate_layout(30, 300.0, 10.0 * ROW_HEIGHT, ROW_HEIGHT);
+        let larger = calculate_layout(30, 300.0, 10.0 * ROW_HEIGHT, larger);
         assert!(larger.rows_per_column < normal.rows_per_column);
         assert!(larger.column_count > normal.column_count);
-        assert!(larger.rows_per_column as f32 * 36.0 <= larger.viewport_height);
+        assert!(
+            larger.rows_per_column as f32 * (ROW_HEIGHT + 6.0) <= larger.viewport_height,
+            "larger rows must still fit the viewport"
+        );
     }
 }
