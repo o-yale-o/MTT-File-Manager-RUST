@@ -50,8 +50,7 @@ pub(super) fn render(
             row.height() - 4.0,
         ),
     );
-    if !ctx.compact
-        && !ctx.is_recycle_bin_view
+    if !ctx.is_recycle_bin_view
         && !ctx.global_search_active
         && ctx.renaming_state.is_none()
         && (ctx.selected_item == Some(index) || response.clicked() || response.double_clicked())

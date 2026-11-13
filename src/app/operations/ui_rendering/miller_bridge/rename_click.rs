@@ -55,6 +55,7 @@ pub(super) fn finish_rename_for_click_away(
 fn clicked_item_index(action: &MillerColumnAction) -> Option<usize> {
     match action {
         MillerColumnAction::Clicked(index)
+        | MillerColumnAction::RenameClicked(index)
         | MillerColumnAction::DoubleClicked(index)
         | MillerColumnAction::SecondaryClicked(index, _) => Some(*index),
         MillerColumnAction::DragStarted(_)

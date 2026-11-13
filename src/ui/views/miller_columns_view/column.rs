@@ -24,6 +24,8 @@ const CHEVRON_W: f32 = 14.0;
 pub enum MillerColumnAction {
     Clicked(usize),
     DoubleClicked(usize),
+    /// Second single click on an already-selected row's name: enter rename.
+    RenameClicked(usize),
     SecondaryClicked(usize, egui::Pos2),
     DragStarted(usize),
     EmptyClicked,
@@ -105,6 +107,7 @@ pub(super) fn render_row(
             ui,
             rectangle_start,
             is_selected,
+            false,
         );
     }
 
@@ -267,6 +270,26 @@ pub(super) fn render_row(
         );
     }
 
+    // Two single clicks on the selected row's name enter inline rename, the
+    // same delayed-click gesture the list/grid views use. A real double-click
+    // cancels the pending rename so the open action still wins.
+    let name_rect = Rect::from_min_max(
+        egui::pos2(text_x, row_rect.top() + 2.0),
+        egui::pos2(row_rect.right() - CHEVRON_W - 4.0, row_rect.bottom() - 2.0),
+    );
+    let single_selected =
+        ctx.selected_file.is_some_and(|p| p == item.path.as_path()) && ctx.multi_selection.len() <= 1;
+    let rename_click = !ctx.is_item_dragging
+        && (single_selected || response.clicked() || response.double_clicked())
+        && crate::ui::components::inline_rename::selected_name_click_starts_rename(
+            ui,
+            egui::Id::new("miller_ancestor_rename_click"),
+            &response,
+            &item.path,
+            name_rect,
+            single_selected,
+        );
+
     interaction(
         index,
         item,
@@ -275,6 +298,7 @@ pub(super) fn render_row(
         ui,
         rectangle_start,
         is_selected,
+        rename_click,
     )
 }
 
@@ -286,7 +310,13 @@ fn interaction(
     ui: &Ui,
     rectangle_start: &mut Option<egui::Pos2>,
     is_selected: bool,
+    rename_click: bool,
 ) -> Option<MillerColumnAction> {
+    // The gesture fires on the frame after the double-click interval expires —
+    // a frame without a click event — so it must win before the click checks.
+    if rename_click {
+        return Some(MillerColumnAction::RenameClicked(index));
+    }
     let (press_origin, pointer_position, primary_button_down) = ui.input(|input| {
         (
             input.pointer.press_origin(),
