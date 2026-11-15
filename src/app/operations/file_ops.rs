@@ -267,14 +267,22 @@ impl ImageViewerApp {
             return;
         };
 
-        // Dispatch to the file operation worker (STA COM thread) — avoids blocking the UI thread.
-        // SHObjectProperties opens a modeless dialog that manages its own lifetime.
-        let _ = self.file_operation_state.file_op_sender.send(
-            crate::workers::file_operation_worker::FileOperationRequest::show_properties(
-                paths, hwnd,
-            ),
-        );
-        // Note: do NOT increment file_ops_in_progress — this is fire-and-forget.
+        // Execute on the UI thread. The shell's properties dialog is a
+        // modeless window and the invocation returns immediately after
+        // creating it. The multi-select `properties` verb silently does
+        // nothing on a pump-less STA thread (the worker), because the
+        // property sheet needs the calling thread to pump messages — the
+        // egui main loop provides exactly that.
+        if let Err(error) =
+            crate::infrastructure::windows::native_menu::show_properties_for_selection(
+                hwnd, &paths,
+            )
+        {
+            log::warn!(
+                "[PROPERTIES] Failed to show properties for {} path(s): {error:?}",
+                paths.len()
+            );
+        }
     }
 
     pub fn create_new_folder(&mut self) {

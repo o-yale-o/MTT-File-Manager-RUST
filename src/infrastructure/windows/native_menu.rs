@@ -582,6 +582,153 @@ pub fn show_properties_dialog(hwnd: HWND, path: &std::path::Path) -> Result<()> 
     }
 }
 
+/// Shows ONE combined Windows Properties dialog for the whole selection —
+/// the Explorer behavior for multi-selection. The selection is resolved into
+/// sibling PIDLs (same parent folder) and the folder's shell context-menu UI
+/// object is asked to invoke the canonical `properties` verb once; the shell
+/// then aggregates size/dates/attributes itself. Any failure falls back to
+/// per-path dialogs so the user always gets a window.
+pub fn show_properties_for_selection(
+    hwnd: HWND,
+    paths: &[std::path::PathBuf],
+) -> Result<()> {
+    if paths.is_empty() {
+        return Err(Error::new(E_INVALIDARG, "Empty selection"));
+    }
+    if paths.len() == 1 {
+        return show_properties_dialog(hwnd, &paths[0]);
+    }
+    if let Err(combined_error) = show_combined_properties(hwnd, paths) {
+        log::warn!(
+            "[PROPERTIES] Combined multi-select properties failed ({:?}); falling back to per-path dialogs",
+            combined_error
+        );
+        for path in paths {
+            show_properties_dialog(hwnd, path)?;
+        }
+    }
+    Ok(())
+}
+
+fn show_combined_properties(hwnd: HWND, paths: &[std::path::PathBuf]) -> Result<()> {
+    if !selection_has_single_parent(paths) {
+        return Err(Error::new(
+            E_INVALIDARG,
+            "Aggregated properties require items from one parent folder",
+        ));
+    }
+
+    unsafe {
+        let mut guard = PidlCleanupGuard::new(paths.len().saturating_mul(2));
+        let mut child_pidls: Vec<*const ITEMIDLIST> = Vec::with_capacity(paths.len());
+        let mut parent_folder_opt: Option<IShellFolder> = None;
+
+        for path in paths {
+            let wide_path: Vec<u16> = path
+                .as_os_str()
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect();
+            let mut pidl: *mut ITEMIDLIST = std::ptr::null_mut();
+            SHParseDisplayName(PCWSTR(wide_path.as_ptr()), None, &mut pidl, 0, None)?;
+            if pidl.is_null() {
+                return Err(Error::new(
+                    E_INVALIDARG,
+                    "Shell returned a null item ID list",
+                ));
+            }
+            guard.push(pidl);
+
+            let parent_pidl = ILClone(pidl);
+            if parent_pidl.is_null() {
+                return Err(Error::new(
+                    E_OUTOFMEMORY,
+                    "Failed to clone the Shell parent item ID list",
+                ));
+            }
+            guard.push(parent_pidl);
+            if !ILRemoveLastID(Some(parent_pidl)).as_bool() {
+                return Err(Error::new(
+                    E_INVALIDARG,
+                    "Shell item does not have a resolvable parent",
+                ));
+            }
+
+            let mut child: *mut ITEMIDLIST = std::ptr::null_mut();
+            let folder = SHBindToParent(pidl, Some(&mut child))?;
+            if child.is_null() {
+                return Err(Error::new(E_INVALIDARG, "Shell returned a null child item"));
+            }
+            if parent_folder_opt.is_none() {
+                parent_folder_opt = Some(folder);
+            }
+            child_pidls.push(child as *const ITEMIDLIST);
+        }
+
+        let Some(parent_folder) = parent_folder_opt else {
+            return Err(Error::from_thread());
+        };
+
+        // The same multi-select UI object the native context menu uses.
+        let context_menu: IContextMenu =
+            parent_folder.GetUIObjectOf(hwnd, &child_pidls, None)?;
+
+        // QueryContextMenu first: shell handlers initialize their internal
+        // state at query time. Invoking a verb on a never-queried context
+        // menu returns Ok but silently does nothing. Then locate the
+        // `properties` entry and invoke it by its menu offset, exactly the
+        // way the native menu invocation path does.
+        let hmenu = CreatePopupMenu()?;
+        if let Err(query_error) = context_menu
+            .QueryContextMenu(hmenu, 0, 1, 0x7FFF, CMF_NORMAL)
+            .ok()
+        {
+            let _ = DestroyMenu(hmenu);
+            return Err(query_error);
+        }
+
+        let mut properties_offset: Option<u32> = None;
+        let item_count = GetMenuItemCount(Some(hmenu)).max(0) as u32;
+        for index in 0..item_count {
+            let mut info = MENUITEMINFOW {
+                cbSize: std::mem::size_of::<MENUITEMINFOW>() as u32,
+                fMask: MIIM_ID,
+                ..Default::default()
+            };
+            if GetMenuItemInfoW(hmenu, index, true, &mut info).is_ok()
+                && info.wID >= 1
+                && get_command_string(&context_menu, info.wID)
+                    .is_some_and(|verb| verb.eq_ignore_ascii_case("properties"))
+            {
+                properties_offset = Some(info.wID.saturating_sub(1));
+                break;
+            }
+        }
+        //（GetMenuItemInfoW returns Result; the ok() check above suffices）
+
+        let Some(offset) = properties_offset else {
+            let _ = DestroyMenu(hmenu);
+            return Err(Error::new(
+                E_FAIL,
+                "properties verb not found in the multi-select shell menu",
+            ));
+        };
+
+        let invoke = CMINVOKECOMMANDINFOEX {
+            cbSize: std::mem::size_of::<CMINVOKECOMMANDINFOEX>() as u32,
+            fMask: SEE_MASK_UNICODE,
+            hwnd,
+            lpVerb: PCSTR(offset as *const u8),
+            lpVerbW: PCWSTR(offset as *const u16),
+            nShow: SW_SHOWNORMAL.0,
+            ..Default::default()
+        };
+        let result = context_menu.InvokeCommand(std::ptr::addr_of!(invoke) as *const _);
+        let _ = DestroyMenu(hmenu);
+        result
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::selection_has_single_parent;
