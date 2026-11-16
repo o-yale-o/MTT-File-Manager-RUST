@@ -124,16 +124,19 @@ pub(super) fn render_row(
 
     let mut visual_rect = row_rect;
     visual_rect.max.x -= 4.0;
+    // Outline only: inset vertically so consecutive selected rows keep a
+    // 4px gap instead of stacking their borders into one thick band.
+    let outline_rect = visual_rect.shrink2(egui::vec2(0.0, 2.0));
     if is_selected {
         ui.painter().rect_stroke(
-            visual_rect,
+            outline_rect,
             4.0,
-            egui::Stroke::new(2.0, theme::accent_color(ui.ctx())),
+            egui::Stroke::new(1.5, theme::accent_color(ui.ctx())),
             egui::StrokeKind::Inside,
         );
     } else if response.hovered() || is_focused {
         ui.painter().rect_stroke(
-            visual_rect,
+            outline_rect,
             4.0,
             egui::Stroke::new(1.0, theme::accent_color(ui.ctx()).gamma_multiply(0.35)),
             egui::StrokeKind::Inside,

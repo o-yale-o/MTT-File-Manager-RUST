@@ -247,19 +247,22 @@ fn render_column_item(
         let is_focused = ctx.selected_item == Some(index);
         let accent = crate::ui::theme::accent_color(ui.ctx());
         let visual_rect = rect.shrink2(egui::vec2(2.0, 0.0));
+        // Outline only: inset vertically so consecutive selected rows keep a
+        // 4px gap instead of stacking their borders into one thick band.
+        let outline_rect = visual_rect.shrink2(egui::vec2(0.0, 2.0));
 
         crate::ui::list_stripes::paint(ui, visual_rect, stripe_row);
 
         if is_selected {
             ui.painter().rect_stroke(
-                visual_rect,
+                outline_rect,
                 4.0,
-                egui::Stroke::new(2.0, accent),
+                egui::Stroke::new(1.5, accent),
                 egui::StrokeKind::Inside,
             );
         } else if is_hovered || is_focused {
             ui.painter().rect_stroke(
-                visual_rect,
+                outline_rect,
                 4.0,
                 egui::Stroke::new(1.0, accent.gamma_multiply(0.35)),
                 egui::StrokeKind::Inside,

@@ -159,17 +159,20 @@ pub(super) fn render_list_item(
         let accent = crate::ui::theme::accent_color(ui.ctx());
         let mut visual = rect;
         visual.max.x -= 8.0;
+        // Outline only: inset vertically so consecutive selected rows keep a
+        // 4px gap instead of stacking their borders into one thick band.
+        let outline = visual.shrink2(egui::vec2(0.0, 2.0));
         crate::ui::list_stripes::paint(ui, visual, stripe_row);
         if selected {
             ui.painter().rect_stroke(
-                visual,
+                outline,
                 4.0,
-                egui::Stroke::new(if hovered { 2.5 } else { 2.0 }, accent),
+                egui::Stroke::new(if hovered { 1.75 } else { 1.5 }, accent),
                 egui::StrokeKind::Inside,
             );
         } else if hovered || focused {
             ui.painter().rect_stroke(
-                visual,
+                outline,
                 4.0,
                 egui::Stroke::new(1.0, accent.gamma_multiply(0.35)),
                 egui::StrokeKind::Inside,
