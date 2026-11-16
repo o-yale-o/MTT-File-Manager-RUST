@@ -456,12 +456,6 @@ impl FileOperationRequest {
             clipboard_paste_token: Some(clipboard_paste_token),
         }
     }
-    pub fn show_properties(paths: Vec<PathBuf>, hwnd: HWND) -> Self {
-        Self::ShowProperties {
-            paths,
-            hwnd: SendHwnd(hwnd),
-        }
-    }
 
     /// Replaces the HWND in all variants that carry one.
     /// Used by the worker thread to substitute the UI-thread HWND with a

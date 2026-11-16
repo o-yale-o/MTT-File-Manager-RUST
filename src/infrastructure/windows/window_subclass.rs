@@ -335,11 +335,6 @@ extern "system" fn borderless_subclass_proc(
         return unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) };
     }
 
-    if msg == redraw_suppression::REPLAY_MESSAGE {
-        redraw_suppression::handle_replay(hwnd);
-        return LRESULT(0);
-    }
-
     if msg == super::system_tray::TRAY_CALLBACK_MESSAGE {
         super::system_tray::handle_callback(hwnd, lparam);
         return LRESULT(0);
@@ -473,10 +468,13 @@ extern "system" fn borderless_subclass_proc(
         }
     }
 
-    if msg == WM_SIZE && redraw_suppression::is_active() {
-        redraw_suppression::defer_size();
-        return LRESULT(0);
-    }
+    // NOTE: WM_SIZE is intentionally NOT suppressed during caption moves.
+    // A pure move only sends WM_MOVE, so the paint-suppression optimization
+    // loses nothing there — but suppressing WM_SIZE breaks mixed-DPI drags:
+    // the WM_DPICHANGED handler applies the OS-suggested (much larger) rect
+    // via SetWindowPos, and if the resulting WM_SIZE never reaches
+    // winit/egui the surface keeps its old size — the window then renders
+    // stale content inside an outline (虚框) until the drag ends.
 
     // Handle layout phase transitions for minimize/restore
     // NOTE: The freeze_layout() now happens in the UI layer (before minimize)
