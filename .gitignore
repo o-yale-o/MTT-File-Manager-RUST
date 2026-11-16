@@ -95,6 +95,10 @@ coverage/
 !/vendor/yrs/**
 !/vendor/betteroffice-opc/
 !/vendor/betteroffice-opc/**
+!/vendor/winit-pre/
+!/vendor/winit-pre/**
+!/vendor/winit-pre/**
+!/vendor/winit-pre/**
 
 # ============================================
 # Other Project-Specific Files
