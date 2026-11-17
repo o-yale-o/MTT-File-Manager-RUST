@@ -150,3 +150,42 @@ pub fn render_tab_bar(
     if !matches!(tabs_action, TabBarAction::None) {
         action = tabs_action;
     }
+
+    ui.scope_builder(
+        egui::UiBuilder::new().max_rect(layout.new_tab_and_drag),
+        |ui| {
+            ui.shrink_clip_rect(layout.new_tab_and_drag);
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 0.0;
+                if new_tab_area::render_new_tab_and_drag_area(
+                    ui,
+                    &ctx,
+                    tab_height,
+                    0.0,
+                    inactive_bg,
+                    hover_bg,
+                    text_color,
+                    tab_reorder_active,
+                ) && !tab_reorder_active
+                {
+                    action = TabBarAction::NewTab;
+                }
+            });
+        },
+    );
+
+    ui.scope_builder(egui::UiBuilder::new().max_rect(layout.controls), |ui| {
+        ui.shrink_clip_rect(layout.controls);
+        ui.horizontal(|ui| {
+            window_controls::render_window_controls(
+                ui,
+                _frame,
+                strip::WINDOW_BUTTON_WIDTH,
+                tab_height,
+                &mut action,
+            )
+        });
+    });
+
+    action
+}
