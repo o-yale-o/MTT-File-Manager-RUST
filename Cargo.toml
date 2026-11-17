@@ -3,11 +3,13 @@ members = [
     ".",
     "crates/mtt-search-protocol",
     "crates/mtt-search-service",
+    "crates/mtt-mpv-thumbnail",
+    "crates/mtt-copy-engine",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "0.2.11"
+version = "0.2.12"
 rust-version = "1.99"
 
 [workspace.dependencies]
@@ -32,6 +34,7 @@ rfd = "0.15"
 lru = "0.16.3"
 notify = { version = "6.1.1", optional = true }
 natord = "1.0"
+unicode-normalization = "0.1"
 dirs = "5.0"
 dashmap = "5.5"
 image = { version = "0.25", features = ["webp", "gif"] }
@@ -72,6 +75,8 @@ xlsx_model = { package = "betteroffice-xlsx-model", version = "=0.3.0" }
 # Pin the patched BetterOffice Yrs version used by the local stable-Rust compatibility copy.
 yrs = "=0.27.3"
 mtt-search-protocol = { path = "crates/mtt-search-protocol" }
+mtt-mpv-thumbnail = { path = "crates/mtt-mpv-thumbnail" }
+mtt-copy-engine = { path = "crates/mtt-copy-engine" }
 bincode = { workspace = true }
 serde = { workspace = true }
 rust-i18n = "3"
@@ -119,6 +124,7 @@ features = [
     "Win32_System_Threading",
     "Win32_System_JobObjects",
     "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Diagnostics_Debug",
     "Win32_Graphics_Imaging",
     "Win32_Graphics_Dwm",
     "Win32_Media_MediaFoundation",
@@ -154,6 +160,8 @@ features = [
 
 [target.'cfg(windows)'.dependencies]
 wgpu = { version = "29.0", default-features = false, features = ["std", "dx12"] }
+# Uses the opt-in Windows resize API in the matching vendored source.
+winit = { version = "=0.30.13", default-features = false, features = ["rwh_06"] }
 
 [features]
 default = ["notify-watcher", "online-updates"]
@@ -182,3 +190,9 @@ opt-level = 3
 lto = true
 codegen-units = 1
 strip = true
+
+[profile.dev]
+# Full debug info (~1 GB PDB per test binary) makes each MSVC link.exe
+# allocate ~3 GB; several parallel test links then exhaust system RAM.
+# Line tables keep backtraces and breakpoints while shrinking links drastically.
+debug = "line-tables-only"

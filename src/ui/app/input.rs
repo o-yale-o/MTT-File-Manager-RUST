@@ -118,10 +118,39 @@ fn handle_delete_permanently_shortcut(
 }
 
 pub fn handle_input(app: &mut ImageViewerApp, ctx: &egui::Context) {
+    if app.command_palette.active {
+        if ctx.input(|input| !input.events.is_empty()) {
+            app.last_user_activity = std::time::Instant::now();
+            app.refresh_working_set_trim_blocker(false);
+            let _ = app
+                .file_operation_state
+                .idle_warmup_sender
+                .send(IdleWarmupMessage::UserActive);
+        }
+        return;
+    }
+    if ctx.input(|input| input.viewport().focused.unwrap_or(false))
+        && app.can_open_command_palette(ctx)
+        && crate::ui::command_palette::consume_toggle(&app.shortcuts, ctx)
+    {
+        app.command_palette
+            .open(ctx.memory(|memory| memory.focused()));
+        app.last_user_activity = std::time::Instant::now();
+        app.refresh_working_set_trim_blocker(false);
+        let _ = app
+            .file_operation_state
+            .idle_warmup_sender
+            .send(IdleWarmupMessage::UserActive);
+        ctx.request_repaint();
+        return;
+    }
     if app.folder_export.is_some() {
         return;
     }
     if crate::app::operations::tabs::transfer_pending(ctx) {
+        return;
+    }
+    if super::interface_input::handle_interface_input(app, ctx) {
         return;
     }
     let mut user_active = false;
@@ -390,21 +419,15 @@ pub fn handle_input(app: &mut ImageViewerApp, ctx: &egui::Context) {
         // ── DUAL PANEL SHORTCUTS ──
         // Tab (no modifiers) = switch active panel when dual panel is enabled
         // Ctrl+Shift+D = toggle dual panel on/off
-        if !text_input_active {
-            let tab_pressed = ctx.input(|i| {
-                i.events.iter().any(|e| {
-                    matches!(
-                        e,
-                        egui::Event::Key { key: egui::Key::Tab, pressed: true, modifiers, .. }
-                        if !modifiers.ctrl && !modifiers.alt && !modifiers.shift
-                    )
-                })
-            });
-            if tab_pressed && app.dual_panel_enabled {
-                app.dual_panel_switch_active();
-                user_active = true;
-            }
+        if super::dual_panel_input::consume_panel_tab(
+            ctx,
+            app.dual_panel_enabled && !app.command_palette_blocked(),
+        ) {
+            app.dual_panel_switch_active();
+            user_active = true;
+        }
 
+        if !text_input_active {
             let ctrl_shift_d = ctx.input(|i| {
                 i.events.iter().any(|e| {
                     matches!(

@@ -1,4 +1,4 @@
-//! Tab bar UI component for MTT File Manager
+﻿//! Tab bar UI component for MTT File Manager
 //!
 //! Renders a Windows 11/Files-style tab bar with:
 //! - Tab icons and titles
@@ -22,6 +22,9 @@ mod drag_dwell;
 mod icon_style;
 mod new_tab_area;
 mod reorder;
+mod strip;
+#[cfg(test)]
+mod strip_tests;
 mod tabs_renderer;
 mod window_controls;
 
@@ -68,8 +71,6 @@ pub fn render_tab_bar(
     let tab_height = 36.0; // Slightly taller for integrated title bar
     let tab_padding = 8.0;
     let close_btn_size = 16.0;
-    let window_btn_width = 46.0; // Standard Windows button width
-    let window_controls_width = window_btn_width * 3.0; // Min, Max, Close
 
     // Colors based on theme (Windows Explorer style - gray tones)
     let is_dark = ui.visuals().dark_mode;
@@ -100,74 +101,52 @@ pub fn render_tab_bar(
         Color32::from_rgb(100, 100, 100)
     };
 
-    // Calculate available space for tabs
-    let available_width = ui.available_width() - window_controls_width - 50.0; // 50.0 for new tab button
     let num_tabs = tab_manager.tabs.len();
-
-    // Dynamic tab width calculation (Windows Explorer behavior)
-    let min_tab_width = 100.0;
-    let max_tab_width = 200.0;
-    let ideal_tab_width = (available_width / num_tabs as f32).clamp(min_tab_width, max_tab_width);
+    let (bar_rect, _) = ui.allocate_exact_size(
+        egui::vec2(ui.available_width(), tab_height),
+        egui::Sense::hover(),
+    );
+    let layout = strip::StripLayout::new(bar_rect, num_tabs);
     let tab_reorder_active = ctx
         .data(|data| data.get_temp::<usize>(egui::Id::new("tab_reorder_drag")))
         .is_some();
 
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 0.0; // Remove spacing between tabs
-                                               // Render tabs
-        let tabs_action = tabs_renderer::render_tabs(
-            ui,
-            tab_manager,
-            tag_definitions,
-            pinned_folders,
-            live_path,
-            tree_state,
-            svg_icons,
-            computer_icon,
-            icon_loader,
-            media_owner_id,
-            is_playing,
-            is_muted,
-            is_item_dragging,
-            auto_expand_tree,
-            ideal_tab_width,
-            tab_height,
-            tab_padding,
-            close_btn_size,
-            active_bg,
-            inactive_bg,
-            hover_bg,
-            text_color,
-            inactive_text,
-            is_dark,
-        );
-        if !matches!(tabs_action, TabBarAction::None) {
-            action = tabs_action;
-        }
-
-        if new_tab_area::render_new_tab_and_drag_area(
-            ui,
-            &ctx,
-            tab_height,
-            window_controls_width,
-            inactive_bg,
-            hover_bg,
-            text_color,
-            tab_reorder_active,
-        ) && !tab_reorder_active
-        {
-            action = TabBarAction::NewTab;
-        }
-
-        // Render window controls (min/max/close) for borderless window
-        window_controls::render_window_controls(
-            ui,
-            _frame,
-            window_btn_width,
-            tab_height,
-            &mut action,
-        );
-    });
-
-    action
-}
+    let tabs_action = strip::show(
+        ui,
+        &layout,
+        tab_manager.active().id,
+        tab_manager.active_tab,
+        num_tabs,
+        |ui, reveal_active| {
+            tabs_renderer::render_tabs(
+                ui,
+                tab_manager,
+                tag_definitions,
+                pinned_folders,
+                live_path,
+                tree_state,
+                svg_icons,
+                computer_icon,
+                icon_loader,
+                media_owner_id,
+                is_playing,
+                is_muted,
+                is_item_dragging,
+                auto_expand_tree,
+                layout.tab_width,
+                reveal_active,
+                tab_height,
+                tab_padding,
+                close_btn_size,
+                active_bg,
+                inactive_bg,
+                hover_bg,
+                text_color,
+                inactive_text,
+                is_dark,
+            )
+        },
+    );
+    if !matches!(tabs_action, TabBarAction::None) {
+        action = tabs_action;
+    }

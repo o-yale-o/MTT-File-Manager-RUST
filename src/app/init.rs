@@ -99,6 +99,7 @@ impl ImageViewerApp {
         cc: &eframe::CreationContext<'_>,
         startup_folder: Option<PathBuf>,
     ) -> Self {
+        crate::viewer_runtime::backend::register_context(cc);
         let ctx = cc.egui_ctx.clone();
         ctx.set_fonts(font_definitions_with_embedded_icons());
 
@@ -158,6 +159,7 @@ impl ImageViewerApp {
             prefetch_tx,
             idle_warmup_tx,
             file_op_tx,
+            copy_runtime,
             file_op_res_rx,
             extraction_progress,
             extraction_cancel,
@@ -259,6 +261,11 @@ impl ImageViewerApp {
             date_format,
             tab_preferences,
         } = startup_preferences;
+
+        copy_runtime.enabled.store(
+            explorer_preferences.native_copy_engine,
+            std::sync::atomic::Ordering::Relaxed,
+        );
 
         crate::domain::date_format::set_date_format(date_format);
 
@@ -429,6 +436,7 @@ impl ImageViewerApp {
         initial_navigation_state.is_recycle_bin_view =
             initial_path == crate::domain::special_paths::RECYCLE_BIN_VIEW_ID;
 
+        let initial_restore_time = Instant::now();
         let mut app = Self {
             navigation_state: initial_navigation_state,
             current_folder_modified_hint: None,
@@ -848,9 +856,10 @@ impl ImageViewerApp {
             last_memory_trace_log: Instant::now(),
             last_texture_cache_retune: Instant::now(),
             last_user_activity: Instant::now(),
+            startup_memory_trim: initial_restore_time.into(),
 
             // INACTIVITY RECOVERY
-            last_restore_time: Instant::now(),
+            last_restore_time: initial_restore_time,
             minimized_duration_secs: 0.0,
             restore_burst_until: None,
 
@@ -875,6 +884,7 @@ impl ImageViewerApp {
             diagnostic_mode_enabled_at,
             shortcuts,
             shortcut_editor: crate::app::shortcuts::ShortcutEditorState::default(),
+            command_palette: crate::app::command_palette::CommandPaletteState::default(),
 
             folder_locks,
             current_folder_locked: false,
@@ -942,6 +952,7 @@ impl ImageViewerApp {
 
             // FILE OPERATION WORKER/TRACKING
             file_operation_state: build_file_operation_state(
+                copy_runtime,
                 file_op_tx,
                 file_op_res_rx,
                 extraction_progress,

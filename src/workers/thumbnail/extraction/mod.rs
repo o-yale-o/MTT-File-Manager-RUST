@@ -8,6 +8,8 @@
 //! 3. **WIC** (Robust Fallback) - Windows Imaging Component for CMYK/problematic images
 //! 4. **Shell API** (Universal) - IThumbnailCache with WTS_EXTRACTDONOTCACHE
 //! 5. **Media Foundation** (Fallback only) - Direct video frame extraction
+//!
+//! Videos use an isolated libmpv helper first, with Shell/MF only on failure.
 
 pub mod orientation;
 pub mod stage0_embedded_exif_thumbnail;
@@ -15,6 +17,8 @@ pub mod stage1_image_crate;
 pub mod stage2_wic;
 pub mod stage3_shell_api;
 pub mod stage5_media_foundation;
+mod video;
+mod windows_fallback;
 
 use crate::domain::thumbnail::MAX_THUMBNAIL_SIDE;
 use crate::infrastructure::diagnostic_logger::{
@@ -35,11 +39,14 @@ pub enum ThumbnailExtractionOutcome {
     Success((Vec<u8>, u32, u32)),
     UnsafeToRead(crate::infrastructure::windows::file_flags::FileReadSafety),
     Failed,
+    Cancelled,
+    TransientFailure,
 }
 
 /// Hybrid thumbnail extraction pipeline
 ///
 /// Attempts extraction in order of speed/reliability:
+/// - Videos: isolated libmpv, then Windows Shell/Media Foundation on failure
 /// - Stages 1-2: Fast paths for images
 /// - Stage 3: Universal Shell fallback without populating Explorer's cache
 /// - Stage 5: Direct video frame extraction when Windows thumbnail providers fail
@@ -53,7 +60,7 @@ pub fn generate_thumbnail_hybrid(
 ) -> Option<(Vec<u8>, u32, u32)> {
     match generate_thumbnail_hybrid_detailed_with_target(path, priority, pending_deletions, None) {
         ThumbnailExtractionOutcome::Success(data) => Some(data),
-        ThumbnailExtractionOutcome::UnsafeToRead(_) | ThumbnailExtractionOutcome::Failed => None,
+        _ => None,
     }
 }
 
@@ -71,6 +78,25 @@ pub fn generate_thumbnail_hybrid_detailed_with_target(
     pending_deletions: &dashmap::DashMap<std::path::PathBuf, ()>,
     image_target_max_side: Option<u32>,
 ) -> ThumbnailExtractionOutcome {
+    generate_thumbnail_hybrid_cancellable(
+        path,
+        priority,
+        pending_deletions,
+        image_target_max_side,
+        &|| false,
+    )
+}
+
+pub fn generate_thumbnail_hybrid_cancellable(
+    path: &Path,
+    priority: IOPriority,
+    pending_deletions: &dashmap::DashMap<std::path::PathBuf, ()>,
+    image_target_max_side: Option<u32>,
+    cancelled: &dyn Fn() -> bool,
+) -> ThumbnailExtractionOutcome {
+    if cancelled() || pending_deletions.contains_key(path) {
+        return ThumbnailExtractionOutcome::Cancelled;
+    }
     // DEFENSE IN DEPTH: Early exit for non-media files
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         if !crate::infrastructure::windows::is_media_extension(ext) {
@@ -95,6 +121,16 @@ pub fn generate_thumbnail_hybrid_detailed_with_target(
     let read_safety = crate::infrastructure::windows::file_flags::classify_file_read_safety(path);
     if read_safety != crate::infrastructure::windows::file_flags::FileReadSafety::Safe {
         return ThumbnailExtractionOutcome::UnsafeToRead(read_safety);
+    }
+
+    if is_video_path(path) {
+        return video::extract(
+            path,
+            image_target_max_side
+                .unwrap_or(MAX_THUMBNAIL_SIDE)
+                .clamp(1, MAX_THUMBNAIL_SIDE),
+            &|| cancelled() || pending_deletions.contains_key(path),
+        );
     }
 
     if let Some(max_side) = embedded_exif_thumbnail_target(path, image_target_max_side) {
@@ -150,37 +186,11 @@ pub fn generate_thumbnail_hybrid_detailed_with_target(
         return ThumbnailExtractionOutcome::Failed;
     }
 
-    // Shell API fallback (Universal/Video)
-    {
-        let t0 = std::time::Instant::now();
-        match stage3_shell_api::extract_with_size(path, image_target_max_side) {
-            Ok(result) => {
-                log_extraction_perf(path, "stage3_shell", t0, &result);
-                return ThumbnailExtractionOutcome::Success(result);
-            }
-            Err(e) => {
-                log_extraction_stage_failure(path, "stage3_shell", t0);
-                let err_str = e.to_string();
-                if !err_str.contains("0x80070002") {
-                    log::trace!(
-                        "[Thumbnail] Stage 3 failed for {:?}: {}",
-                        path.file_name(),
-                        e
-                    );
-                }
-            }
-        }
-    }
-
-    // Media Foundation fallback only. It can return a technically valid but poor
-    // thumbnail frame (black/wrong frame), so keep it behind Windows providers.
-    {
-        let t0 = std::time::Instant::now();
-        if let Some(result) = stage5_media_foundation::extract(path) {
-            log_extraction_perf(path, "stage5_mf", t0, &result);
-            return ThumbnailExtractionOutcome::Success(result);
-        }
-        log_extraction_stage_failure(path, "stage5_mf", t0);
+    let outcome = windows_fallback::extract(path, image_target_max_side, &|| {
+        cancelled() || pending_deletions.contains_key(path)
+    });
+    if !matches!(outcome, ThumbnailExtractionOutcome::Failed) {
+        return outcome;
     }
 
     let total_ms = pipeline_start.elapsed().as_millis();

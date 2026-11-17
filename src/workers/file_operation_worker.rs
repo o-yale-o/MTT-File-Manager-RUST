@@ -8,7 +8,14 @@ use windows::Win32::Foundation::HWND;
 
 use crate::domain::organizer_operation::OrganizerOperationId;
 use crate::domain::organizer_rule::OrganizerConflictPolicy;
+mod batch_outcome;
 mod handlers;
+mod message_pump;
+mod native_copy;
+mod native_move;
+mod native_delete;
+mod search_delete;
+mod shell_transfers;
 mod shortcuts;
 
 use crate::infrastructure::diagnostic_logger::{diag_error, field_label};
@@ -20,6 +27,13 @@ use crate::infrastructure::windows::ComScope;
 use crate::workers::archive_extraction_worker::ArchiveExtractionRequest;
 
 pub enum FileOperationResult {
+    /// A Shell handoff returned, not a transfer-completion notification. The
+    /// external handler owns progress/errors; filesystem events update views.
+    ShellTransferReturned {
+        parent_folders: Vec<PathBuf>,
+        clipboard_paste_token: Option<u64>,
+        dispatch_failed: bool,
+    },
     /// Generic notification that a file operation finished
     Finished,
     /// Operation finished, but a specific completion handler already updated the affected views.
@@ -290,6 +304,11 @@ fn organizer_path_key(path: &Path) -> String {
 /// Requests that can be sent to the file operation worker.
 #[allow(dead_code)] // Copy/Move variants intentionally kept for single-file operations
 pub(crate) enum FileOperationRequest {
+    SearchDelete {
+        paths: Vec<PathBuf>,
+        permanently: bool,
+        hwnd: SendHwnd,
+    },
     Delete {
         paths: Vec<PathBuf>,
         hwnd: SendHwnd,
@@ -403,6 +422,13 @@ impl FileOperationRequest {
     }
 
     // Helper to wrap HWND
+    pub fn search_delete(paths: Vec<PathBuf>, permanently: bool, hwnd: HWND) -> Self {
+        Self::SearchDelete {
+            paths,
+            permanently,
+            hwnd: SendHwnd(hwnd),
+        }
+    }
     pub fn delete(paths: Vec<PathBuf>, hwnd: HWND) -> Self {
         Self::Delete {
             paths,
@@ -466,6 +492,13 @@ impl FileOperationRequest {
     fn substitute_hwnd(self, hwnd: SendHwnd) -> Self {
         match self {
             Self::Delete { paths, .. } => Self::Delete { paths, hwnd },
+            Self::SearchDelete {
+                paths, permanently, ..
+            } => Self::SearchDelete {
+                paths,
+                permanently,
+                hwnd,
+            },
             Self::Rename { path, new_name, .. } => Self::Rename {
                 path,
                 new_name,
@@ -654,13 +687,20 @@ pub(crate) fn start_file_operation_worker(
     receiver: Arc<crossbeam_channel::Receiver<FileOperationRequest>>,
     result_sender: std::sync::mpsc::Sender<FileOperationResult>,
     archive_extract_sender: std::sync::mpsc::Sender<ArchiveExtractionRequest>,
+    copy_runtime: Arc<crate::infrastructure::copy_engine::CopyRuntime>,
 ) {
     for worker_id in 0..FILE_OPERATION_WORKERS {
         let receiver = Arc::clone(&receiver);
         let result_sender = result_sender.clone();
         let archive_extract_sender = archive_extract_sender.clone();
+        let copy_runtime = copy_runtime.clone();
         let spawn_result = crate::spawn_named(&format!("file-op-worker-{worker_id}"), move || {
-            run_file_operation_loop(receiver, result_sender, archive_extract_sender);
+            run_file_operation_loop(
+                receiver,
+                result_sender,
+                archive_extract_sender,
+                copy_runtime,
+            );
         });
 
         if let Err(error) = spawn_result {
@@ -677,10 +717,12 @@ fn run_file_operation_loop(
     receiver: Arc<crossbeam_channel::Receiver<FileOperationRequest>>,
     result_sender: std::sync::mpsc::Sender<FileOperationResult>,
     archive_extract_sender: std::sync::mpsc::Sender<ArchiveExtractionRequest>,
+    copy_runtime: Arc<crate::infrastructure::copy_engine::CopyRuntime>,
 ) {
     // Initialize COM as Single-Threaded Apartment (STA)
     // RAII guard ensures CoUninitialize even on panic.
     let _com = ComScope::sta();
+    let _ole = crate::infrastructure::windows::shell_transfer::OleScope::initialize().ok();
 
     // Create a proxy HWND ON THE WORKER THREAD so that Shell progress
     // dialogs (shown by SHFileOperationW / IFileOperation) are owned by a
@@ -707,7 +749,7 @@ fn run_file_operation_loop(
         );
     }
 
-    while let Ok(request) = receiver.recv() {
+    while let Some(request) = message_pump::receive(&receiver) {
         // Substitute the UI-thread HWND with the worker-thread proxy.
         // Falls back to the original HWND if proxy creation failed.
         let request = match worker_proxy_hwnd {
@@ -719,7 +761,27 @@ fn run_file_operation_loop(
         let is_organizer_operation = organizer_operation.is_some();
 
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if native_copy::try_handle(&request, &result_sender, &copy_runtime) {
+                return CompletionBehavior::SendFinishedNoRefresh;
+            }
+            if native_move::try_handle(&request, &result_sender, &copy_runtime) {
+                return CompletionBehavior::SendFinishedNoRefresh;
+            }
+            if native_delete::try_handle(&request, &result_sender, &copy_runtime) {
+                return CompletionBehavior::SendFinishedNoRefresh;
+            }
+            if shell_transfers::try_delegate(&request, &result_sender) {
+                return CompletionBehavior::NoFinished;
+            }
             match request {
+                FileOperationRequest::SearchDelete {
+                    paths,
+                    permanently,
+                    hwnd,
+                } => {
+                    search_delete::handle(paths, permanently, hwnd, &result_sender);
+                    return CompletionBehavior::SendFinishedNoRefresh;
+                }
                 FileOperationRequest::Delete { paths, hwnd } => {
                     handlers::handle_delete(paths, hwnd, &result_sender);
                 }

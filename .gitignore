@@ -95,9 +95,11 @@ coverage/
 !/vendor/yrs/**
 !/vendor/betteroffice-opc/
 !/vendor/betteroffice-opc/**
+!/vendor/winit/
+!/vendor/winit/**
+/vendor/winit/Cargo.lock
+/vendor/winit/target/
 !/vendor/winit-pre/
-!/vendor/winit-pre/**
-!/vendor/winit-pre/**
 !/vendor/winit-pre/**
 
 # ============================================

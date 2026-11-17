@@ -107,6 +107,7 @@ pub(in crate::app) struct AppBootstrap {
 
     pub(in crate::app) file_op_tx:
         crossbeam_channel::Sender<crate::workers::file_operation_worker::FileOperationRequest>,
+    pub(in crate::app) copy_runtime: Arc<crate::infrastructure::copy_engine::CopyRuntime>,
     pub(in crate::app) file_op_res_rx:
         mpsc::Receiver<crate::workers::file_operation_worker::FileOperationResult>,
     pub(in crate::app) extraction_progress:
@@ -338,7 +339,7 @@ pub(in crate::app) fn bootstrap_app(ctx: &egui::Context) -> AppBootstrap {
     // store is in fallback would rewrite a primary DB the app is not using.
     if app_state_db.is_on_primary_path() && disk_cache.is_on_primary_path() {
         if let Err(error) = migrate_legacy_tables(
-            &cache_dir.join("thumbnails.db"),
+            &disk_cache.primary_database_path(),
             &state_dir.join("app_state.db"),
         ) {
             log::error!(
@@ -484,6 +485,7 @@ pub(in crate::app) fn bootstrap_app(ctx: &egui::Context) -> AppBootstrap {
         conversion_sender,
         compression_progress,
         compression_cancel,
+        copy_runtime,
     ) = spawn_file_operation_worker();
     let (global_search_tx, global_search_res_rx) = spawn_global_search_worker(ctx);
     let disk_cache_invalidation_tx =
@@ -573,6 +575,7 @@ pub(in crate::app) fn bootstrap_app(ctx: &egui::Context) -> AppBootstrap {
         conversion_sender,
         compression_progress,
         compression_cancel,
+        copy_runtime,
         global_search_tx,
         global_search_res_rx,
         disk_cache_invalidation_tx,

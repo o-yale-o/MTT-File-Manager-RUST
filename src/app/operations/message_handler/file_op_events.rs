@@ -70,6 +70,16 @@ impl ImageViewerApp {
                     processed += 1;
                     self.refresh_network_locations_after_operation(&res);
                     match res {
+                        FileOperationResult::ShellTransferReturned {
+                            parent_folders,
+                            clipboard_paste_token,
+                            dispatch_failed,
+                        } => self.handle_shell_transfer_returned(
+                            parent_folders,
+                            clipboard_paste_token,
+                            dispatch_failed,
+                            current_path_norm,
+                        ),
                         FileOperationResult::RenameCompleted {
                             path,
                             new_name,
@@ -99,10 +109,11 @@ impl ImageViewerApp {
                         } => self.handle_drive_rename_failed(drive_path, error, cancelled),
                         FileOperationResult::OperationFailed { message } => {
                             self.notifications.warning(message);
+                            self.request_global_search_refresh();
                             self.restore_app_focus();
                         }
                         FileOperationResult::ClipboardMoveFailed { token, message } => {
-                            crate::app::file_operation_state::fail_pending_clipboard_move(
+                            crate::app::file_operation_state::release_pending_clipboard_move(
                                 &mut self.file_operation_state.pending_clipboard_move,
                                 token,
                             );
@@ -828,7 +839,7 @@ impl ImageViewerApp {
         }
     }
 
-    fn handle_parent_folder_updates(
+    pub(super) fn handle_parent_folder_updates(
         &mut self,
         parent_folders: Vec<PathBuf>,
         current_path_norm: &str,
@@ -1199,7 +1210,7 @@ impl ImageViewerApp {
                         .is_some_and(|cover| moved_files.iter().any(|file| file == cover))
                     {
                         self.remove_folder_cover_without_blocking(source_folder, true);
-                        self.cache_manager.folder_preview_cache.pop(source_folder);
+                        self.cache_manager.invalidate_folder_preview(source_folder);
                         #[cfg(debug_assertions)]
                         log::debug!(
                             "[MOVE-BATCH] Moved file was folder cover for {:?}, requesting recalculation",

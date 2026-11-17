@@ -68,7 +68,24 @@ mod tests {
             let (decoded, _, _, _) = cache
                 .get_folder_preview_for_appearance(&folder, size, appearance)
                 .expect("switching colors must reuse the matching variant");
-            assert_eq!(decoded, expected);
+            assert_eq!(decoded.len(), expected.len());
+            // Stored lossy (q90): solid colors round-trip within a small RGB
+            // delta; alpha is lossless and stays exact.
+            for (decoded_px, expected_px) in decoded
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .zip(expected.as_chunks::<4>().0)
+            {
+                assert_eq!(decoded_px[3], expected_px[3], "alpha must stay exact");
+                for channel in 0..3 {
+                    let delta = i32::from(decoded_px[channel]) - i32::from(expected_px[channel]);
+                    assert!(
+                        delta.abs() <= 8,
+                        "solid color channel {channel} drifted by {delta}"
+                    );
+                }
+            }
         }
     }
 
@@ -118,6 +135,52 @@ mod tests {
             FolderAppearance::ALL.len()
         );
         assert_absent(&cache, &folder);
+    }
+
+    #[test]
+    fn folder_previews_reject_overflow_artwork_without_deleting_old_rows() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = ThumbnailDiskCache::new(dir.path().to_path_buf()).unwrap();
+        let folder = dir.path().join("folder");
+        let pixels = [230, 210, 140, 255].repeat(16 * 16);
+        let data = webp::Encoder::from_rgba(&pixels, 16, 16)
+            .encode_lossless()
+            .to_vec();
+        for table in ["folder_previews", "folder_preview_variants"] {
+            for appearance in FolderAppearance::ALL {
+                cache
+                    .writer
+                    .lock()
+                    .execute(
+                        &format!(
+                            "INSERT OR REPLACE INTO {table}
+                        (folder_path, data, width, height, bucket_size, format_version, created_at)
+                        VALUES (?, ?, 16, 16, 16, ?, 1)"
+                        ),
+                        params![folder.to_string_lossy(), data, appearance.cache_version(2)],
+                    )
+                    .unwrap();
+                assert!(cache
+                    .get_folder_preview_for_appearance(&folder, 16, appearance)
+                    .is_none());
+                let count: i64 = cache
+                    .reader
+                    .lock()
+                    .query_row(
+                        &format!("SELECT COUNT(*) FROM {table} WHERE format_version = ?"),
+                        [appearance.cache_version(2)],
+                        |row| row.get(0),
+                    )
+                    .unwrap();
+                assert_eq!(count, 1, "old artwork must remain stored but not reused");
+            }
+        }
+        put_variants(&cache, &folder);
+        for appearance in FolderAppearance::ALL {
+            assert!(cache
+                .get_folder_preview_for_appearance(&folder, 16, appearance)
+                .is_some());
+        }
     }
 
     #[test]

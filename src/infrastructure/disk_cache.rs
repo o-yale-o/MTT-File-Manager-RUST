@@ -17,11 +17,20 @@ use super::db_utils;
 mod cleanup;
 mod folder_previews;
 pub use folder_previews::{FolderPreviewPixels, FolderPreviewSource};
+#[cfg(test)]
+mod compatibility_tests;
 mod gc;
 mod thumbnail_freshness;
 mod thumbnails_repo;
 
-const FOLDER_PREVIEW_CACHE_FORMAT_VERSION: i64 = 2;
+// Bumped 3 -> 4: composed previews are now stored as lossy WebP (q90) instead of
+// lossless — several times faster to decode on the warm path. Old lossless rows
+// are invalidated by the version mismatch and recomposed once.
+const FOLDER_PREVIEW_CACHE_FORMAT_VERSION: i64 = 4;
+/// Lossy quality for stored folder previews. Alpha is still compressed
+/// losslessly by libwebp (alpha_quality=100), so transparency is exact; only the
+/// RGB channels see q90 loss, which is imperceptible at grid display sizes.
+pub(crate) const FOLDER_PREVIEW_WEBP_QUALITY: f32 = 90.0;
 const ACL_HARDENED_MARKER: &str = ".acl_hardened_v1";
 const LEGACY_CLEANUP_MARKER: &str = ".legacy_cleanup_v1";
 const OVERSIZED_CLEANUP_MARKER: &str = ".oversized_cleanup_v1";
@@ -84,7 +93,6 @@ impl ThumbnailCacheEntry {
 pub struct ThumbnailDiskCache {
     writer: Arc<Mutex<Connection>>, // For put, set_*, garbage_collect (DELETE)
     reader: Arc<Mutex<Connection>>, // For get, get_*, check existence
-    #[allow(dead_code)]
     cache_dir: PathBuf,
     /// True when the active writer connection is the primary on-disk database.
     /// False for a temp/in-memory fallback.
@@ -251,6 +259,11 @@ impl ThumbnailDiskCache {
     /// Returns true when the active writer is the primary on-disk database.
     pub fn is_on_primary_path(&self) -> bool {
         self.on_primary_path
+    }
+
+    /// Stable primary database path, also used by legacy settings migration.
+    pub(crate) fn primary_database_path(&self) -> PathBuf {
+        self.cache_dir.join("thumbnails.db")
     }
 
     fn marker_path(cache_dir: &Path, marker_name: &str) -> PathBuf {

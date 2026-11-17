@@ -87,13 +87,13 @@ impl Drop for SemaphorePermit<'_> {
     }
 }
 
-fn available_cpu_count() -> usize {
+pub(crate) fn available_cpu_count() -> usize {
     std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(4)
 }
 
-fn compute_thumbnail_worker_count(cpu_count: usize) -> usize {
+pub(crate) fn compute_thumbnail_worker_count(cpu_count: usize) -> usize {
     // Decode parallelism is bounded by `compute_decode_limit` (max 4) via the
     // shared semaphore, so worker counts above 4 only add idle threads waiting
     // on the semaphore — each costing ~1 MB of committed stack RAM by default.
@@ -125,6 +125,7 @@ pub fn spawn_thumbnail_workers(
     let cpu_count = available_cpu_count();
     let worker_count = compute_thumbnail_worker_count(cpu_count);
     let decode_limit = compute_decode_limit(worker_count);
+    log::info!("[MPV-THUMB] isolated video backend enabled; embedded MKV covers then adaptive frames; Windows fallback on extraction failure; existing thumbnail cache preserved");
 
     // Semaphore for RAM limiter
     let semaphore = Arc::new(Semaphore::new(decode_limit));
@@ -544,6 +545,13 @@ fn thumbnail_worker_loop(
                 &pending_deletions,
                 &mut last_repaint,
                 &cache_write_tx,
+                &|| {
+                    if participates_in_bulk_scan {
+                        active_bulk_session != Some(bulk_thumbnail_session.load(Ordering::Relaxed))
+                    } else {
+                        !generation_gate.accepts(req_gen)
+                    }
+                },
             );
 
             if is_virtual_bulk_scan {

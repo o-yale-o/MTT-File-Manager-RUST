@@ -21,6 +21,7 @@ pub(crate) fn render(
     svg_manager: &mut SvgIconManager,
     current_item_count: usize,
     has_selection: bool,
+    shortcuts: &crate::app::shortcuts::ShortcutBindings,
 ) -> Option<SelectionControlAction> {
     let controls_rect =
         egui::Rect::from_center_size(bar_rect.center(), egui::vec2(GROUP_WIDTH, BUTTON_SIZE.y));
@@ -35,7 +36,11 @@ pub(crate) fn render(
         &mut controls_ui,
         svg_manager,
         "select_all",
-        &t!("status_bar.select_all"),
+        &format!(
+            "{} ({})",
+            t!("status_bar.select_all"),
+            shortcuts.label(crate::app::shortcuts::ShortcutAction::SelectAll)
+        ),
         current_item_count > 0,
     );
     let clear = selection_button(
@@ -49,7 +54,11 @@ pub(crate) fn render(
         &mut controls_ui,
         svg_manager,
         "invert_selection",
-        &t!("status_bar.invert_selection"),
+        &format!(
+            "{} ({})",
+            t!("status_bar.invert_selection"),
+            shortcuts.label(crate::app::shortcuts::ShortcutAction::InvertSelection)
+        ),
         current_item_count > 0,
     );
 
@@ -113,3 +122,6 @@ fn selection_button(
     };
     response.on_hover_text(tooltip).clicked() && enabled
 }
+
+#[cfg(test)]
+mod tests;

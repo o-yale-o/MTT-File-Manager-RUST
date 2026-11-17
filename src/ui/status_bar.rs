@@ -4,9 +4,7 @@
 //! Low-level thread/resource monitoring stays in the background, but those
 //! process metrics are intentionally not exposed in the UI.
 
-use crate::domain::file_entry::ViewMode;
 use crate::ui::components::selection_controls::{self, SelectionControlAction};
-use crate::ui::components::status_bar_size_controls;
 use crate::ui::svg_icons::SvgIconManager;
 use crate::ui::theme;
 use crate::ui::widgets;
@@ -238,6 +236,8 @@ pub enum StatusBarAction {
     BulkThumbnailScan,
     /// Show/hide hidden files toggled
     ShowHiddenChanged,
+    /// Preview panel (详细信息) visibility toggled
+    TogglePreviewPanel,
     /// Clear the active tag filter
     ClearTagFilter,
     /// Select every item in the active panel's current listing
@@ -246,8 +246,6 @@ pub enum StatusBarAction {
     ClearSelection,
     /// Invert selection in the active panel's current listing
     InvertSelection,
-    /// Preview panel visibility toggled
-    TogglePreviewPanel,
     /// No action
     None,
 }
@@ -267,12 +265,10 @@ pub fn render_status_bar(
     bulk_scan_active: bool,
     show_hidden_files: &mut bool,
     show_preview_panel: bool,
-    view_mode: ViewMode,
-    thumbnail_size: &mut f32,
-    interface_scale: &mut f32,
     video_preview_active: bool,
     active_tag_filter_name: Option<&str>,
     compact_layout: bool,
+    shortcuts: &crate::app::shortcuts::ShortcutBindings,
 ) -> StatusBarAction {
     let mut action = StatusBarAction::None;
 
@@ -325,7 +321,11 @@ pub fn render_status_bar(
                 svg_manager,
                 "settings",
                 false,
-                &t!("status_bar.settings"),
+                &format!(
+                    "{} ({})",
+                    t!("status_bar.settings"),
+                    shortcuts.label(crate::app::shortcuts::ShortcutAction::OpenSettings)
+                ),
                 theme::ICON_SIZE_SM,
                 1.0,
                 0.75,
@@ -405,8 +405,8 @@ pub fn render_status_bar(
                     "info",
                     show_preview_panel,
                     &tooltip,
-                    theme::ICON_SIZE_SM,
-                    1.0,
+                    theme::ICON_SIZE_MD - 2.0,
+                    2.0,
                     0.75,
                 )
                 .clicked()
@@ -439,8 +439,6 @@ pub fn render_status_bar(
                     }
                 }
             }); // end Frame
-
-            status_bar_size_controls::render(ui, view_mode, thumbnail_size, interface_scale);
         });
 
         let selection_row_rect = if compact_layout {
@@ -457,6 +455,7 @@ pub fn render_status_bar(
             svg_manager,
             current_item_count,
             has_selection,
+            shortcuts,
         ) {
             action = match selection_action {
                 SelectionControlAction::SelectAll => StatusBarAction::SelectAll,
