@@ -179,7 +179,7 @@ lopdf = { version = "0.44", default-features = false }
 [patch.crates-io]
 yrs = { path = "vendor/yrs" }
 betteroffice-opc = { path = "vendor/betteroffice-opc" }
-winit = { path = "vendor/winit-pre" }
+winit = { path = "vendor/winit" }
 
 [[bench]]
 name = "image_viewer_decode"

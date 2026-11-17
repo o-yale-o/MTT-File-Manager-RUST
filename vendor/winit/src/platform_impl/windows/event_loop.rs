@@ -2310,6 +2310,17 @@ unsafe fn public_window_callback_inner(
 
             let new_outer_rect: RECT;
             {
+                // MTT PATCH (rust-windowing/winit#4573): while dragging the window
+                // across monitors with a different DPI, use the OS-suggested rect
+                // verbatim and skip the size recomputation + monitor nudge below.
+                // The recomputed size drifts on mixed-DPI setups and the nudge check
+                // compares against the source monitor (the window has not moved yet),
+                // so the rect gets pushed back and the move never completes — or the
+                // window ends up in outline-drag limbo with stale-size text.
+                // `ScaleFactorChanged` was already delivered above, so egui still
+                // learns the new pixels-per-point, and all upstream bookkeeping
+                // below (maximized flag handling, the single SetWindowPos) stays.
+                if !(dragging_window && allow_resize) {
                 let suggested_ul =
                     (suggested_rect.left + margin_left, suggested_rect.top + margin_top);
 
@@ -2406,6 +2417,9 @@ unsafe fn public_window_callback_inner(
 
                     conservative_rect
                 };
+                } else {
+                    new_outer_rect = suggested_rect;
+                }
             }
 
             unsafe {
