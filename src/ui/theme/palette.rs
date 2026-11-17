@@ -38,8 +38,7 @@ pub struct Palette {
     pub selection_text: Color32,
 }
 
-pub fn for_mode(mode: ThemeMode) -> Option<Palette> {
-    match mode {
+pub fn for_mode(mode: ThemeMode) -> Option<Palette> {    match mode {
         ThemeMode::DarkDeep => Some(Palette {
             background: Color32::from_gray(24),
             surface: Color32::from_gray(30),
@@ -70,6 +69,74 @@ pub fn for_mode(mode: ThemeMode) -> Option<Palette> {
         }),
         _ => None,
     }
+}
+
+/// Derives a palette from the colors Windows itself paints file lists with
+/// (`DarkMode_Explorer` ItemsView + the user's accent color). Used by
+/// `ThemeMode::System` so the app visually matches Explorer in both modes.
+/// Returns `None` when uxtheme/registry cannot provide the base colors, and
+/// the caller keeps its legacy fallback.
+pub fn from_system(dark: bool) -> Option<Palette> {
+    let colors =
+        crate::infrastructure::windows::app_theme::read_system_items_colors(dark)?;
+    let background = Color32::from_rgb(
+        colors.background[0],
+        colors.background[1],
+        colors.background[2],
+    );
+    let text = Color32::from_rgb(colors.text[0], colors.text[1], colors.text[2]);
+
+    // Blend helper in RGB; the system colors are near-grayscale so plain
+    // mixing tracks the Explorer tones closely.
+    let mix = |a: Color32, b: Color32, t: f32| -> Color32 {
+        let ch = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t).round() as u8;
+        Color32::from_rgb(ch(a.r(), b.r()), ch(a.g(), b.g()), ch(a.b(), b.b()))
+    };
+    let white = Color32::WHITE;
+    let black = Color32::BLACK;
+    // (delta color, amount) pairs flip direction with the mode so surfaces
+    // stay layered like Explorer: panel < raised < hover < active.
+    let step = |amount: f32| -> Color32 {
+        if dark {
+            mix(background, white, amount)
+        } else {
+            mix(background, black, amount)
+        }
+    };
+    let surface = step(0.03);
+    let input = if dark { mix(background, black, 0.10) } else { background };
+    let raised = step(0.06);
+    let hover = step(0.09);
+    let active = step(0.13);
+    let border = step(0.17);
+    let secondary = mix(text, background, 0.42);
+
+    let accent = crate::infrastructure::windows::app_theme::read_system_accent_color()
+        .map(|c| Color32::from_rgb(c[0], c[1], c[2]))
+        .unwrap_or_else(|| {
+            if dark {
+                Color32::from_rgb(96, 173, 255)
+            } else {
+                Color32::from_rgb(0, 120, 215)
+            }
+        });
+    let selection = mix(background, accent, 0.35);
+    let selection_text = mix(text, background, 0.12);
+
+    Some(Palette {
+        background,
+        surface,
+        input,
+        raised,
+        hover,
+        active,
+        border,
+        text,
+        secondary,
+        accent,
+        selection,
+        selection_text,
+    })
 }
 
 impl Palette {

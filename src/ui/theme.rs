@@ -20,11 +20,39 @@ pub fn current_mode(ctx: &egui::Context) -> ThemeMode {
 }
 
 pub fn current_palette(ctx: &egui::Context) -> Option<palette::Palette> {
-    palette::for_mode(current_mode(ctx))
+    palette::for_mode(current_mode(ctx)).or_else(|| stored_system_palette(ctx))
 }
 
 fn remember_mode(ctx: &egui::Context, mode: ThemeMode) {
     ctx.data_mut(|data| data.insert_temp(egui::Id::new("applied_theme_mode"), mode));
+}
+
+/// Palette derived for `ThemeMode::System` (stored so every color accessor
+/// matches the applied visuals until the next `apply_*` call).
+fn remember_system_palette(ctx: &egui::Context, palette: Option<palette::Palette>) {
+    ctx.data_mut(|data| {
+        data.insert_temp(egui::Id::new("applied_system_palette"), palette);
+    });
+}
+
+fn stored_system_palette(ctx: &egui::Context) -> Option<palette::Palette> {
+    ctx.data(|data| data.get_temp(egui::Id::new("applied_system_palette")))
+        .flatten()
+}
+
+/// Palette for the active theme: dedicated palettes win; `System` samples the
+/// Windows ItemsView colors live (re-sampled on every apply, so an OS theme
+/// flip that triggers a re-apply picks up the new palette). Light/Dark keep
+/// the built-in egui visuals.
+pub fn effective_palette(ctx: &egui::Context, mode: ThemeMode, dark: bool) -> Option<palette::Palette> {
+    palette::for_mode(mode).or_else(|| {
+        if mode != ThemeMode::System {
+            return None;
+        }
+        let derived = palette::from_system(dark);
+        remember_system_palette(ctx, derived);
+        derived
+    })
 }
 
 pub fn accent_color(ctx: &egui::Context) -> Color32 {
@@ -228,7 +256,7 @@ pub fn apply_theme_visuals(ctx: &egui::Context, mode: ThemeMode) {
     } else {
         ctx.set_visuals(egui::Visuals::light());
     }
-    if let Some(p) = palette::for_mode(mode) {
+    if let Some(p) = effective_palette(ctx, mode, dark) {
         ctx.global_style_mut(|style| p.apply(&mut style.visuals));
     }
     apply_scroll_style(ctx);
@@ -248,7 +276,7 @@ pub fn apply_viewer_visuals(ctx: &egui::Context, mode: ThemeMode) {
         egui::Theme::Light
     });
     ctx.set_visuals(viewer_visuals(dark));
-    if let Some(p) = palette::for_mode(mode) {
+    if let Some(p) = effective_palette(ctx, mode, dark) {
         ctx.global_style_mut(|style| p.apply(&mut style.visuals));
     }
     apply_scroll_style(ctx);
