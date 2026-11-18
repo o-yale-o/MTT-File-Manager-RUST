@@ -11,15 +11,23 @@ pub(super) struct StripLayout {
 }
 
 impl StripLayout {
-    pub fn new(rect: egui::Rect, count: usize) -> Self {
-        let controls_left = (rect.right() - WINDOW_BUTTON_WIDTH * 3.0).max(rect.left());
-        let available = (controls_left - rect.left() - NEW_TAB_WIDTH).max(0.0);
+    /// `top_padding` insets the tab strip from the window's top edge and
+    /// `left_padding` from its left edge (Win11 keeps ~10px of caption
+    /// around the tab pills); window controls still span the full height.
+    pub fn new(rect: egui::Rect, count: usize, top_padding: f32) -> Self {
+        let tabs_left = rect.left() + top_padding;
+        let controls_left = (rect.right() - WINDOW_BUTTON_WIDTH * 3.0).max(tabs_left);
+        let available = (controls_left - tabs_left - NEW_TAB_WIDTH).max(0.0);
         let tab_width = (available / count.max(1) as f32).clamp(100.0, 200.0);
-        let tabs_right = rect.left() + (tab_width * count as f32).min(available);
+        let tabs_right = tabs_left + (tab_width * count as f32).min(available);
+        let strip_top = rect.top() + top_padding;
         Self {
-            tabs: egui::Rect::from_min_max(rect.min, egui::pos2(tabs_right, rect.bottom())),
+            tabs: egui::Rect::from_min_max(
+                egui::pos2(tabs_left, strip_top),
+                egui::pos2(tabs_right, rect.bottom()),
+            ),
             new_tab_and_drag: egui::Rect::from_min_max(
-                egui::pos2(tabs_right, rect.top()),
+                egui::pos2(tabs_right, strip_top),
                 egui::pos2(controls_left, rect.bottom()),
             ),
             controls: egui::Rect::from_min_max(egui::pos2(controls_left, rect.top()), rect.max),
@@ -80,7 +88,7 @@ mod tests {
         for width in [320.0, 800.0, 1920.0] {
             for count in [1, 2, 20, 100] {
                 let rect = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(width, 36.0));
-                let layout = StripLayout::new(rect, count);
+                let layout = StripLayout::new(rect, count, 0.0);
                 assert_eq!(layout.controls.right(), rect.right());
                 assert_eq!(layout.controls.width(), WINDOW_BUTTON_WIDTH * 3.0);
                 assert!(layout.new_tab_and_drag.width() >= NEW_TAB_WIDTH);
@@ -96,6 +104,7 @@ mod tests {
         let layout = StripLayout::new(
             egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 36.0)),
             2,
+            0.0,
         );
         assert_eq!(layout.tabs.width(), 400.0);
         assert!(layout.new_tab_and_drag.width() > NEW_TAB_WIDTH);
@@ -107,6 +116,7 @@ mod tests {
             let layout = StripLayout::new(
                 egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 36.0)),
                 20,
+                0.0,
             );
             assert!(layout.tabs.width() >= 0.0);
             assert!(layout.new_tab_and_drag.width() >= 0.0);

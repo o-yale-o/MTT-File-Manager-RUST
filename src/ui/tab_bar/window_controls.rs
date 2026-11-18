@@ -18,11 +18,9 @@ pub(super) fn render_window_controls(
     } else {
         Color32::from_rgb(30, 30, 30)
     };
-    let normal_bg = if is_dark {
-        theme::palette::background(ui.ctx(), Color32::from_rgb(30, 30, 30))
-    } else {
-        Color32::from_rgb(230, 230, 230)
-    };
+    // Win11: min/max buttons are transparent over the caption strip; only
+    // hover feedback and the close-red differ.
+    let normal_bg = Color32::TRANSPARENT;
     let hover_bg = if is_dark {
         theme::color_dark_hover()
     } else {

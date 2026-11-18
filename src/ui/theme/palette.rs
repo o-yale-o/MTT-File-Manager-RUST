@@ -17,6 +17,14 @@ pub fn hover(ctx: &Context, legacy: Color32) -> Color32 {
     super::current_palette(ctx).map_or(legacy, |p| p.hover)
 }
 
+pub fn active(ctx: &Context, legacy: Color32) -> Color32 {
+    super::current_palette(ctx).map_or(legacy, |p| p.active)
+}
+
+pub fn tab_active(ctx: &Context, legacy: Color32) -> Color32 {
+    super::current_palette(ctx).map_or(legacy, |p| p.tab_active)
+}
+
 pub fn border(ctx: &Context, legacy: Color32) -> Color32 {
     super::current_palette(ctx).map_or(legacy, |p| p.border)
 }
@@ -28,6 +36,9 @@ pub struct Palette {
     pub surface: Color32,
     pub input: Color32,
     pub raised: Color32,
+    /// Selected-tab fill. System dark uses Win11's cool-tinted step
+    /// RGB(26,32,44); other themes keep their own surface tone.
+    pub tab_active: Color32,
     pub hover: Color32,
     pub active: Color32,
     pub border: Color32,
@@ -44,6 +55,7 @@ pub fn for_mode(mode: ThemeMode) -> Option<Palette> {    match mode {
             surface: Color32::from_gray(38),
             input: Color32::from_gray(18),
             raised: Color32::from_gray(44),
+            tab_active: Color32::from_gray(38),
             hover: Color32::from_gray(52),
             active: Color32::from_gray(62),
             border: Color32::from_gray(70),
@@ -58,6 +70,7 @@ pub fn for_mode(mode: ThemeMode) -> Option<Palette> {    match mode {
             surface: Color32::from_rgb(31, 36, 42),
             input: Color32::from_rgb(13, 17, 23),
             raised: Color32::from_rgb(37, 42, 50),
+            tab_active: Color32::from_rgb(31, 36, 42),
             hover: Color32::from_rgb(44, 50, 58),
             active: Color32::from_rgb(52, 58, 66),
             border: Color32::from_rgb(60, 66, 74),
@@ -81,29 +94,44 @@ pub fn for_mode(mode: ThemeMode) -> Option<Palette> {    match mode {
 /// provide the base colors; the caller keeps its legacy fallback.
 pub fn from_system(dark: bool) -> Option<Palette> {
     use crate::infrastructure::windows::app_theme as native_theme;
-    // 1) Documented WinRT palette; 2) Explorer ItemsView sampling; 3) registry accent.
-    let base = native_theme::read_system_theme_colors().or_else(|| {
-        native_theme::read_system_items_colors(dark).map(|c| native_theme::SystemThemeColors {
+    // 1) Explorer ItemsView sampling — matches what the file list actually
+    //    paints with (dark RGB 25). `UISettings.Background` returns pure
+    //    black on some systems, which would zero out the whole ladder.
+    // 2) WinRT UISettings palette; 3) registry accent.
+    let base = native_theme::read_system_items_colors(dark)
+        .map(|c| native_theme::SystemThemeColors {
             background: c.background,
             foreground: c.text,
             accent: native_theme::read_system_accent_color().unwrap_or([0, 120, 215]),
         })
-    })?;
+        .or_else(native_theme::read_system_theme_colors)?;
     let rgb = |c: [u8; 3]| Color32::from_rgb(c[0], c[1], c[2]);
     let background = rgb(base.background);
     let text = rgb(base.foreground);
     let accent = rgb(base.accent);
+    // Defense against a broken black background sample (Win11 dark is 25).
+    let gray = background.r().min(background.g()).min(background.b());
+    let background = if dark && background.r() == background.g() && background.g() == background.b() && gray < 15
+    {
+        Color32::from_gray(25)
+    } else {
+        background
+    };
 
     // Fixed-step token ladder (Fluent "layer" offsets, in 8-bit gray steps).
     let (surface_d, raised_d, hover_d, active_d, border_d, input_d) = if dark {
-        // #202020 → #2B2B2B card … #383838 stroke, input darker than base.
-        (11, 16, 20, 32, 24, -8)
+        // Base ≈ RGB 25-32; Win11's strip/card sits at ≈44 = base + 19.
+        (19, 24, 28, 36, 28, -8)
     } else {
         // #FFFFFF → #F3F3F3 card … #E5E5E5 stroke, input stays white.
         (-12, -8, -20, -30, -26, 0)
     };
+    // Fluent design rule: never paint extreme black/white. Derived tones are
+    // harmonized into [10, 245] so even a broken pure-black/pure-white base
+    // sample can't produce harsh surfaces (the base itself is normalized to
+    // RGB 25 above when it samples that dark).
     let step = |delta: i16| -> Color32 {
-        let ch = |c: u8| (c as i16 + delta).clamp(0, 255) as u8;
+        let ch = |c: u8| (c as i16 + delta).clamp(10, 245) as u8;
         Color32::from_rgb(
             ch(background.r()),
             ch(background.g()),
@@ -125,6 +153,12 @@ pub fn from_system(dark: bool) -> Option<Palette> {
 
     let selection = mix(background, accent, if dark { 0.32 } else { 0.22 });
     let selection_text = mix(text, background, 0.12);
+    // Selected tab: Win11's cool-tinted step (RGB 26,32,44) in dark mode.
+    let tab_active = if dark {
+        Color32::from_rgb(26, 32, 44)
+    } else {
+        surface
+    };
 
     Some(Palette {
         background,
@@ -133,6 +167,7 @@ pub fn from_system(dark: bool) -> Option<Palette> {
         raised,
         hover,
         active,
+        tab_active,
         border,
         text,
         secondary,

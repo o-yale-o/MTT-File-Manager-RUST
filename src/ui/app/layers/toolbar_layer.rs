@@ -22,13 +22,18 @@ pub(crate) fn render_toolbar_layer(app: &mut ImageViewerApp, root_ui: &mut egui:
         .show_separator_line(!quick_access_bar_visible)
         .exact_size(46.0)
         .frame(egui::Frame {
+            // Win11: the toolbar row shares the selected tab's cool-tinted
+            // block (dark ≈ RGB 26,32,44) so tab + toolbar read as one unit.
             fill: if dark_mode {
-                crate::ui::theme::palette::surface(
+                crate::ui::theme::palette::tab_active(
                     root_ui.ctx(),
-                    egui::Color32::from_rgb(45, 45, 45),
+                    egui::Color32::from_rgb(26, 32, 44),
                 )
             } else {
-                egui::Color32::from_rgb(243, 243, 243)
+                crate::ui::theme::palette::surface(
+                    root_ui.ctx(),
+                    egui::Color32::from_rgb(243, 243, 243),
+                )
             },
             inner_margin: egui::Margin {
                 left: 8,

@@ -21,7 +21,7 @@ fn render(
         },
         |ui| {
             let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, 36.0));
-            let layout = StripLayout::new(rect, 30);
+            let layout = StripLayout::new(rect, 30, 0.0);
             strip::show(ui, &layout, active, active, 30, |ui, reveal| {
                 reveal_active = reveal;
                 clip = ui.clip_rect();

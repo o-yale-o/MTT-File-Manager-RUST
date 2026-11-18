@@ -12,16 +12,19 @@ pub(crate) fn render_tab_bar_layer(
     crate::app::operations::tabs::render_transfer_progress(&ctx);
     egui::Panel::top("tab_bar_panel")
         .show_separator_line(false)
-        .exact_size(36.0)
+        .exact_size(46.0)
         .frame(egui::Frame {
-            fill: if dark_mode {
-                crate::ui::theme::palette::background(
-                    root_ui.ctx(),
-                    egui::Color32::from_rgb(30, 30, 30),
-                )
-            } else {
-                egui::Color32::from_rgb(230, 230, 230)
-            },
+            // Win11: the strip's empty area uses the CONTENT base (dark ≈
+            // RGB 25/32); the selected tab and the toolbar below share the
+            // brighter `surface` block instead.
+            fill: crate::ui::theme::palette::background(
+                root_ui.ctx(),
+                if dark_mode {
+                    egui::Color32::from_rgb(25, 25, 25)
+                } else {
+                    egui::Color32::from_rgb(230, 230, 230)
+                },
+            ),
             ..Default::default()
         })
         .show(root_ui, |ui| {

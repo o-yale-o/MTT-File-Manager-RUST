@@ -1,4 +1,4 @@
-﻿//! Tab bar UI component for MTT File Manager
+//! Tab bar UI component for MTT File Manager
 //!
 //! Renders a Windows 11/Files-style tab bar with:
 //! - Tab icons and titles
@@ -69,26 +69,33 @@ pub fn render_tab_bar(
     let mut action = TabBarAction::None;
 
     let tab_height = 36.0; // Slightly taller for integrated title bar
+    // Win11 keeps ~10px of caption above the tab pills.
+    let tab_top_padding = 10.0;
     let tab_padding = 8.0;
     let close_btn_size = 16.0;
 
-    // Colors based on theme (Windows Explorer style - gray tones)
+    // Colors based on theme (Windows Explorer style - gray tones).
+    // Win11 dark structure: strip empty area + inactive tabs use the CONTENT
+    // base (≈RGB 25/32); the selected tab and the toolbar row below share one
+    // brighter block (≈RGB 44) so the active tab visually merges into it.
     let is_dark = ui.visuals().dark_mode;
     let active_bg = if is_dark {
-        crate::ui::theme::palette::surface(ui.ctx(), Color32::from_rgb(45, 45, 45))
+        // Selected tab: Win11's cool-tinted step (≈RGB 26,32,44) for the
+        // system palette; other themes keep their own surface tone.
+        crate::ui::theme::palette::tab_active(ui.ctx(), Color32::from_rgb(44, 44, 44))
     } else {
-        Color32::from_rgb(243, 243, 243) // Light gray for active tab (Windows Explorer style)
+        crate::ui::theme::palette::tab_active(ui.ctx(), Color32::from_rgb(243, 243, 243))
     };
     let inactive_bg = if is_dark {
-        crate::ui::theme::palette::background(ui.ctx(), Color32::from_rgb(30, 30, 30))
+        crate::ui::theme::palette::background(ui.ctx(), Color32::from_rgb(25, 25, 25))
     } else {
-        Color32::from_rgb(230, 230, 230) // Darker gray for inactive tabs
+        crate::ui::theme::palette::background(ui.ctx(), Color32::from_rgb(230, 230, 230))
     };
     // Use opaque hover colors in tab bar to avoid tone mismatch with rounded-tab dual-pass paint.
     let hover_bg = if is_dark {
-        crate::ui::theme::palette::hover(ui.ctx(), Color32::from_rgb(52, 52, 52))
+        crate::ui::theme::palette::active(ui.ctx(), Color32::from_rgb(56, 56, 56))
     } else {
-        Color32::from_rgb(216, 216, 216)
+        crate::ui::theme::palette::active(ui.ctx(), Color32::from_rgb(216, 216, 216))
     };
     let text_color = if is_dark {
         crate::ui::theme::text_color(ui.ctx())
@@ -103,10 +110,10 @@ pub fn render_tab_bar(
 
     let num_tabs = tab_manager.tabs.len();
     let (bar_rect, _) = ui.allocate_exact_size(
-        egui::vec2(ui.available_width(), tab_height),
+        egui::vec2(ui.available_width(), tab_height + tab_top_padding),
         egui::Sense::hover(),
     );
-    let layout = strip::StripLayout::new(bar_rect, num_tabs);
+    let layout = strip::StripLayout::new(bar_rect, num_tabs, tab_top_padding);
     let tab_reorder_active = ctx
         .data(|data| data.get_temp::<usize>(egui::Id::new("tab_reorder_drag")))
         .is_some();
