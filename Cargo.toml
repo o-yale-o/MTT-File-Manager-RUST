@@ -155,6 +155,7 @@ features = [
     "Storage",
     "Storage_Streams",
     "Media_Ocr",
+    "UI_ViewManagement",
     "Graphics_Imaging",
     "Win32_System_WinRT",
 ]

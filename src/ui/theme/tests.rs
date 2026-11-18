@@ -57,8 +57,8 @@ fn new_themes_use_the_requested_backgrounds() {
     assert_eq!(deep.background, Color32::from_rgb(24, 24, 24));
     assert!(deep.background.r() < viewer_visuals(true).panel_fill.r());
     assert_eq!(github.background, Color32::from_rgb(0x0d, 0x11, 0x17));
-    assert_eq!(github.surface, Color32::from_rgb(0x16, 0x1b, 0x22));
-    assert_eq!(github.border, Color32::from_rgb(0x30, 0x36, 0x3d));
+    assert_eq!(github.surface, Color32::from_rgb(31, 36, 42));
+    assert_eq!(github.border, Color32::from_rgb(60, 66, 74));
     assert_eq!(github.accent, Color32::from_rgb(0x58, 0xa6, 0xff));
 }
 
@@ -80,12 +80,16 @@ fn native_captions_match_the_main_tab_strip_for_custom_themes() {
 #[test]
 fn switching_back_to_legacy_themes_restores_native_caption_defaults() {
     let ctx = egui::Context::default();
-    for mode in [ThemeMode::Light, ThemeMode::Dark, ThemeMode::System] {
+    // System keeps a custom caption (it follows the sampled system palette);
+    // plain Light/Dark have no palette and must restore the OS defaults.
+    for mode in [ThemeMode::Light, ThemeMode::Dark] {
         apply_viewer_visuals(&ctx, ThemeMode::GitHubDark);
         assert!(native::title_bar_colors(&ctx).is_some());
         apply_viewer_visuals(&ctx, mode);
         assert_eq!(native::title_bar_colors(&ctx), None);
     }
+    apply_viewer_visuals(&ctx, ThemeMode::System);
+    assert!(native::title_bar_colors(&ctx).is_some());
 }
 
 #[test]

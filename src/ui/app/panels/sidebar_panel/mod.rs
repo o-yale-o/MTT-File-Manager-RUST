@@ -26,7 +26,8 @@ pub(super) fn render(app: &mut ImageViewerApp, root_ui: &mut egui::Ui) -> Option
         .exact_size(target_width)
         .resizable(false)
         .frame(egui::Frame::NONE.fill(if dark_mode {
-            crate::ui::theme::palette::surface(root_ui.ctx(), egui::Color32::from_rgb(45, 45, 45))
+            // Win11 Explorer: sidebar and content share the same base tone.
+            crate::ui::theme::palette::background(root_ui.ctx(), egui::Color32::from_rgb(45, 45, 45))
         } else {
             egui::Color32::WHITE
         }))

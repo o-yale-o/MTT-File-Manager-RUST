@@ -41,12 +41,12 @@ pub struct Palette {
 pub fn for_mode(mode: ThemeMode) -> Option<Palette> {    match mode {
         ThemeMode::DarkDeep => Some(Palette {
             background: Color32::from_gray(24),
-            surface: Color32::from_gray(30),
-            input: Color32::from_gray(20),
-            raised: Color32::from_gray(37),
-            hover: Color32::from_gray(44),
-            active: Color32::from_gray(54),
-            border: Color32::from_gray(64),
+            surface: Color32::from_gray(38),
+            input: Color32::from_gray(18),
+            raised: Color32::from_gray(44),
+            hover: Color32::from_gray(52),
+            active: Color32::from_gray(62),
+            border: Color32::from_gray(70),
             text: Color32::from_gray(230),
             secondary: Color32::from_gray(170),
             accent: Color32::from_rgb(96, 173, 255),
@@ -55,12 +55,12 @@ pub fn for_mode(mode: ThemeMode) -> Option<Palette> {    match mode {
         }),
         ThemeMode::GitHubDark => Some(Palette {
             background: Color32::from_rgb(13, 17, 23),
-            surface: Color32::from_rgb(22, 27, 34),
+            surface: Color32::from_rgb(31, 36, 42),
             input: Color32::from_rgb(13, 17, 23),
-            raised: Color32::from_rgb(33, 38, 45),
-            hover: Color32::from_rgb(41, 46, 54),
-            active: Color32::from_rgb(48, 54, 61),
-            border: Color32::from_rgb(48, 54, 61),
+            raised: Color32::from_rgb(37, 42, 50),
+            hover: Color32::from_rgb(44, 50, 58),
+            active: Color32::from_rgb(52, 58, 66),
+            border: Color32::from_rgb(60, 66, 74),
             text: Color32::from_rgb(230, 237, 243),
             secondary: Color32::from_rgb(157, 167, 179),
             accent: Color32::from_rgb(88, 166, 255),
@@ -71,56 +71,59 @@ pub fn for_mode(mode: ThemeMode) -> Option<Palette> {    match mode {
     }
 }
 
-/// Derives a palette from the colors Windows itself paints file lists with
-/// (`DarkMode_Explorer` ItemsView + the user's accent color). Used by
-/// `ThemeMode::System` so the app visually matches Explorer in both modes.
-/// Returns `None` when uxtheme/registry cannot provide the base colors, and
-/// the caller keeps its legacy fallback.
+/// Derives a palette from the canonical Windows theme colors
+/// (`UISettings.GetColorValue`: Background/Foreground/Accent — the same
+/// source WinUI apps use), layered with the **fixed** Fluent deltas:
+/// dark `#202020` base → card `#2B2B2B` (+11), stroke `#383838` (+24);
+/// light `#FFFFFF` base → card `#F3F3F3` (-12), stroke `#E5E5E5` (-26).
+/// Fixed offsets keep the ladder stable no matter what the base color is,
+/// unlike proportional mixing. Returns `None` when WinRT/uxtheme cannot
+/// provide the base colors; the caller keeps its legacy fallback.
 pub fn from_system(dark: bool) -> Option<Palette> {
-    let colors =
-        crate::infrastructure::windows::app_theme::read_system_items_colors(dark)?;
-    let background = Color32::from_rgb(
-        colors.background[0],
-        colors.background[1],
-        colors.background[2],
-    );
-    let text = Color32::from_rgb(colors.text[0], colors.text[1], colors.text[2]);
+    use crate::infrastructure::windows::app_theme as native_theme;
+    // 1) Documented WinRT palette; 2) Explorer ItemsView sampling; 3) registry accent.
+    let base = native_theme::read_system_theme_colors().or_else(|| {
+        native_theme::read_system_items_colors(dark).map(|c| native_theme::SystemThemeColors {
+            background: c.background,
+            foreground: c.text,
+            accent: native_theme::read_system_accent_color().unwrap_or([0, 120, 215]),
+        })
+    })?;
+    let rgb = |c: [u8; 3]| Color32::from_rgb(c[0], c[1], c[2]);
+    let background = rgb(base.background);
+    let text = rgb(base.foreground);
+    let accent = rgb(base.accent);
 
-    // Blend helper in RGB; the system colors are near-grayscale so plain
-    // mixing tracks the Explorer tones closely.
+    // Fixed-step token ladder (Fluent "layer" offsets, in 8-bit gray steps).
+    let (surface_d, raised_d, hover_d, active_d, border_d, input_d) = if dark {
+        // #202020 → #2B2B2B card … #383838 stroke, input darker than base.
+        (11, 16, 20, 32, 24, -8)
+    } else {
+        // #FFFFFF → #F3F3F3 card … #E5E5E5 stroke, input stays white.
+        (-12, -8, -20, -30, -26, 0)
+    };
+    let step = |delta: i16| -> Color32 {
+        let ch = |c: u8| (c as i16 + delta).clamp(0, 255) as u8;
+        Color32::from_rgb(
+            ch(background.r()),
+            ch(background.g()),
+            ch(background.b()),
+        )
+    };
+    let surface = step(surface_d); // selected tab / window panels
+    let input = step(input_d); // text fields
+    let raised = step(raised_d); // inactive buttons
+    let hover = step(hover_d); // list/item hover
+    let active = step(active_d); // pressed / active header
+    let border = step(border_d); // strokes
+    // 78% primary / ~55% secondary over the base (Fluent text opacities).
     let mix = |a: Color32, b: Color32, t: f32| -> Color32 {
         let ch = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t).round() as u8;
         Color32::from_rgb(ch(a.r(), b.r()), ch(a.g(), b.g()), ch(a.b(), b.b()))
     };
-    let white = Color32::WHITE;
-    let black = Color32::BLACK;
-    // (delta color, amount) pairs flip direction with the mode so surfaces
-    // stay layered like Explorer: panel < raised < hover < active.
-    let step = |amount: f32| -> Color32 {
-        if dark {
-            mix(background, white, amount)
-        } else {
-            mix(background, black, amount)
-        }
-    };
-    let surface = step(0.03);
-    let input = if dark { mix(background, black, 0.10) } else { background };
-    let raised = step(0.06);
-    let hover = step(0.09);
-    let active = step(0.13);
-    let border = step(0.17);
-    let secondary = mix(text, background, 0.42);
+    let secondary = mix(text, background, 0.22);
 
-    let accent = crate::infrastructure::windows::app_theme::read_system_accent_color()
-        .map(|c| Color32::from_rgb(c[0], c[1], c[2]))
-        .unwrap_or_else(|| {
-            if dark {
-                Color32::from_rgb(96, 173, 255)
-            } else {
-                Color32::from_rgb(0, 120, 215)
-            }
-        });
-    let selection = mix(background, accent, 0.35);
+    let selection = mix(background, accent, if dark { 0.32 } else { 0.22 });
     let selection_text = mix(text, background, 0.12);
 
     Some(Palette {

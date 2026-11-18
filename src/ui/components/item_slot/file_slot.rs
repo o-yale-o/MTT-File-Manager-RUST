@@ -139,15 +139,19 @@ pub(super) fn render_file_slot<O: ItemSlotOperations>(
 
     // Draw thumbnail or icon
     let mut drew_something = false;
+    // Visual-size rule (matches Explorer's medium-icons view): image
+    // thumbnails fill ~70% of the cell, folder previews ~85%, plain icons
+    // ~55% — thumbnails stay clearly larger but never dwarf document icons.
+    let media_draw_size = thumb_size * 0.6;
     if is_media_file {
         if let Some(texture) = ctx.texture_cache.get(&item.path) {
             // Thumbnail loaded - maintain aspect ratio
             let tex_size = texture.size_vec2();
             let aspect = tex_size.x / tex_size.y;
             let (draw_w, draw_h) = if aspect > 1.0 {
-                (thumb_size, thumb_size / aspect)
+                (media_draw_size, media_draw_size / aspect)
             } else {
-                (thumb_size * aspect, thumb_size)
+                (media_draw_size * aspect, media_draw_size)
             };
             let offset_x = (thumb_size - draw_w) / 2.0;
             let offset_y = (thumb_size - draw_h) / 2.0;
@@ -170,7 +174,7 @@ pub(super) fn render_file_slot<O: ItemSlotOperations>(
         // Render Windows Shell icon directly — it IS the final content for this file type.
         // No grey rect: if the icon hasn't loaded yet the space is left empty (no placeholder).
         if let Some(icon_texture) = file_icon {
-            let icon_size = thumb_size * 0.5;
+            let icon_size = thumb_size * 0.55;
             let icon_rect = crate::ui::views::common::snap_rect_to_physical_pixels(
                 ui.ctx(),
                 scaled_visual_rect(

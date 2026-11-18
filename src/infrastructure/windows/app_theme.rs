@@ -250,3 +250,32 @@ pub fn read_system_accent_color() -> Option<[u8; 3]> {
         Some([(value & 0xFF) as u8, ((value >> 8) & 0xFF) as u8, ((value >> 16) & 0xFF) as u8])
     }
 }
+
+// === SYSTEM THEME PALETTE (documented WinRT UISettings API) ===
+
+/// The canonical system theme colors, straight from
+/// `Windows.UI.ViewManagement.UISettings.GetColorValue` — the documented API
+/// WinUI/Fluent apps are supposed to read. Matches Explorer: dark background
+/// `#202020`, light `#FFFFFF`, plus the accent ladder.
+#[derive(Clone, Copy, Debug)]
+pub struct SystemThemeColors {
+    pub background: [u8; 3],
+    pub foreground: [u8; 3],
+    pub accent: [u8; 3],
+}
+
+pub fn read_system_theme_colors() -> Option<SystemThemeColors> {
+    use windows::UI::ViewManagement::{UIColorType, UISettings};
+
+    // UISettings WinRT calls are safe in windows-rs 0.62.
+    let settings = UISettings::new().ok()?;
+    let read = |kind: UIColorType| -> Option<[u8; 3]> {
+        let color = settings.GetColorValue(kind).ok()?;
+        Some([color.R, color.G, color.B])
+    };
+    Some(SystemThemeColors {
+        background: read(UIColorType::Background)?,
+        foreground: read(UIColorType::Foreground)?,
+        accent: read(UIColorType::Accent)?,
+    })
+}

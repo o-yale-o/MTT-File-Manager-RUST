@@ -20,7 +20,12 @@ pub fn current_mode(ctx: &egui::Context) -> ThemeMode {
 }
 
 pub fn current_palette(ctx: &egui::Context) -> Option<palette::Palette> {
-    palette::for_mode(current_mode(ctx)).or_else(|| stored_system_palette(ctx))
+    let mode = current_mode(ctx);
+    palette::for_mode(mode).or_else(|| {
+        // The sampled system palette only belongs to `System`; Light/Dark must
+        // not inherit it (a stale dark sample would wash out light mode).
+        (mode == ThemeMode::System).then(|| stored_system_palette(ctx)).flatten()
+    })
 }
 
 fn remember_mode(ctx: &egui::Context, mode: ThemeMode) {

@@ -339,8 +339,110 @@ pub fn extract_drive_icon(
 /// Returns the default Windows icon for a file type (by extension), without requiring the file to exist.
 /// Initializes COM for proper Shell integration on secondary threads.
 ///
-/// REFACTORED: Now uses simple filename logic (file.ext) instead of fake absolute C:\ path,
-/// which fixes issues with Recycle Bin items showing generic icons.
+/// Resolves the (icon file, index) a ProgID's `DefaultIcon` points at for the
+/// given extension. Mirrors how Explorer resolves extension icons:
+/// `HKCR\<ext>` → default ProgID → `HKCR\<ProgID>\DefaultIcon`
+/// (`"path",index` — quotes optional, index optional, negative = resource id).
+fn registered_icon_location(extension: &str) -> Option<(String, i32)> {
+    use windows::core::PCWSTR;
+    use windows::Win32::System::Registry::{
+        RegGetValueW, HKEY_CLASSES_ROOT, HKEY_CURRENT_USER, RRF_RT_REG_SZ,
+    };
+
+    let ext = extension.trim_start_matches('.');
+    if ext.is_empty() {
+        return None;
+    }
+
+    let read_sz = |subkey: &str| -> Option<String> {
+        let subkey_wide: Vec<u16> = subkey.encode_utf16().chain(std::iter::once(0)).collect();
+        let mut buf = [0u16; 1024];
+        let mut size = (buf.len() * 2) as u32;
+            unsafe {
+                if RegGetValueW(
+                    HKEY_CLASSES_ROOT,
+                    PCWSTR(subkey_wide.as_ptr()),
+                    PCWSTR::null(),
+                    RRF_RT_REG_SZ,
+                    None,
+                    Some(buf.as_mut_ptr() as *mut _),
+                    Some(&mut size),
+                )
+                .is_err()
+                {
+                    return None;
+                }
+            }
+        let len = (size as usize / 2).min(buf.len());
+        Some(
+            buf[..len]
+                .iter()
+                .take_while(|&&c| c != 0)
+                .map(|&c| char::from_u32(c as u32).unwrap_or('\0'))
+                .collect(),
+        )
+    };
+    let read_hkcu = |subkey: &str| -> Option<String> {
+        let subkey_wide: Vec<u16> = subkey.encode_utf16().chain(std::iter::once(0)).collect();
+        let mut buf = [0u16; 1024];
+        let mut size = (buf.len() * 2) as u32;
+            unsafe {
+                if RegGetValueW(
+                    HKEY_CURRENT_USER,
+                    PCWSTR(subkey_wide.as_ptr()),
+                    PCWSTR::null(),
+                    RRF_RT_REG_SZ,
+                    None,
+                    Some(buf.as_mut_ptr() as *mut _),
+                    Some(&mut size),
+                )
+                .is_err()
+                {
+                    return None;
+                }
+            }
+        let len = (size as usize / 2).min(buf.len());
+        Some(
+            buf[..len]
+                .iter()
+                .take_while(|&&c| c != 0)
+                .map(|&c| char::from_u32(c as u32).unwrap_or('\0'))
+                .collect(),
+        )
+    };
+
+    // Per-user association (Explorer's UserChoice) wins, then machine-wide.
+    let progid = read_hkcu(&format!(
+        "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.{ext}\\UserChoice"
+    ))
+    .or_else(|| read_sz(&format!(".{ext}")))?;
+    let default_icon = read_sz(&format!("{progid}\\DefaultIcon"))?;
+    let default_icon = default_icon.trim().trim_matches('"').to_string();
+
+    // Split trailing ",<index>" (paths may contain colons/spaces; the comma
+    // before the index is the last one that parses as an integer).
+    let (path, index) = match default_icon.rfind(',') {
+        Some(pos) => {
+            let idx = default_icon[pos + 1..].trim();
+            match idx.parse::<i32>() {
+                Ok(i) => (default_icon[..pos].trim().to_string(), i),
+                Err(_) => (default_icon.as_str().to_string(), 0),
+            }
+        }
+        None => (default_icon.clone(), 0),
+    };
+    if path.is_empty() {
+        return None;
+    }
+    // Expand REG_EXPAND_SZ-style environment references the shell would too.
+    let path = std::env::var("SystemRoot")
+        .map(|root| path.replacen("%SystemRoot%", &root, 1))
+        .unwrap_or_else(|_| path);
+    Some((path, index))
+}
+/// Resolves the extension icon like Explorer: dummy path +
+/// SHGFI_USEFILEATTRIBUTES, upgrading Jumbo requests to the registered icon
+/// file's 256px variant via SHDefExtractIconW.
 pub fn get_file_type_icon(
     is_folder: bool,
     extension: &str,
@@ -349,9 +451,10 @@ pub fn get_file_type_icon(
     use windows::core::PCWSTR;
     use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
     use windows::Win32::UI::Shell::{
-        SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON, SHGFI_SMALLICON,
-        SHGFI_USEFILEATTRIBUTES,
+        SHDefExtractIconW, SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_ICONLOCATION,
+        SHGFI_LARGEICON, SHGFI_SMALLICON, SHGFI_USEFILEATTRIBUTES,
     };
+    use windows::Win32::UI::WindowsAndMessaging::HICON;
 
     // RAII guard: ensures CoUninitialize is always called to prevent COM refcount leaks.
     // Previous code called CoInitialize without CoUninitialize, leaking kernel resources
@@ -378,6 +481,79 @@ pub fn get_file_type_icon(
         }
 
         let mut shfi = SHFILEINFOW::default();
+
+        // Jumbo for files: resolve the extension's registered icon file, then
+        // extract the 256px variant directly. Going through
+        // IShellItemImageFactory::GetImage(256, ICONONLY) instead would make
+        // Windows composite registered-but-small icons onto a themed
+        // backplate (tiny glyph on a large tile), which never matches
+        // Explorer's list rendering.
+        if matches!(size, IconSize::Jumbo) && !is_folder {
+            // Preferred: SHGFI_ICONLOCATION. The shell frequently fills only
+            // iIcon and leaves the path empty, so fall back to reading the
+            // ProgID's DefaultIcon from the registry the same way Explorer does.
+            let loc_result = SHGetFileInfoW(
+                PCWSTR(
+                    format!(
+                        "file.{}",
+                        super::canonical_icon_ext(extension.trim_start_matches('.'))
+                    )
+                    .encode_utf16()
+                    .chain(std::iter::once(0))
+                    .collect::<Vec<u16>>()
+                    .as_ptr(),
+                ),
+                windows::Win32::Storage::FileSystem::FILE_ATTRIBUTE_NORMAL,
+                Some(&mut shfi),
+                std::mem::size_of::<SHFILEINFOW>() as u32,
+                SHGFI_ICONLOCATION | SHGFI_USEFILEATTRIBUTES,
+            );
+            let mut location: Option<(String, i32)> = None;
+            if loc_result != 0 {
+                let icon_path: String = shfi
+                    .szDisplayName
+                    .iter()
+                    .take_while(|&&c| c != 0)
+                    .map(|&c| char::from_u32(c as u32).unwrap_or('\0'))
+                    .collect();
+                if !icon_path.is_empty() {
+                    location = Some((icon_path, shfi.iIcon));
+                }
+            }
+            let location = location.or_else(|| {
+                registered_icon_location(super::canonical_icon_ext(
+                    extension.trim_start_matches('.'),
+                ))
+            });
+
+            if let Some((icon_path, index)) = location {
+                let mut hicon = HICON::default();
+                let extract = SHDefExtractIconW(
+                    PCWSTR(
+                        icon_path
+                            .encode_utf16()
+                            .chain(std::iter::once(0))
+                            .collect::<Vec<u16>>()
+                            .as_ptr(),
+                    ),
+                    index,
+                    0,
+                    Some(&mut hicon),
+                    None,
+                    256,
+                );
+                if extract.is_ok() && !hicon.is_invalid() {
+                    let conversion =
+                        crate::infrastructure::windows::bitmap_conversion::hicon_to_rgba(hicon);
+                    let _ = windows::Win32::UI::WindowsAndMessaging::DestroyIcon(hicon);
+                    if let Ok(res) = conversion {
+                        return Ok(res);
+                    }
+                }
+            }
+            // Fall through to the 48px SHGFI path if the 256px extraction
+            // fails; a slightly soft icon beats a wrong one.
+        }
 
         let flags = SHGFI_ICON
             | SHGFI_USEFILEATTRIBUTES

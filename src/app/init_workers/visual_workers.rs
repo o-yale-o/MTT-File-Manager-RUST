@@ -172,7 +172,11 @@ pub(in crate::app) fn spawn_icon_worker(
                         .map(|e| e.to_string_lossy().to_lowercase());
                     let per_file_icon = ext_lower.as_deref()
                         .map(crate::infrastructure::windows::icons::is_per_file_icon_ext)
-                        .unwrap_or(true);
+                        // Dotfiles like ".gitignore" have no Path::extension();
+                        // they must NOT take the per-file IShellItemImageFactory
+                        // path (Win11 composites a themed backplate there).
+                        // Extensionless files use the generic-file icon channel.
+                        .unwrap_or(false);
                     let needs_real_path_shared_icon = ext_lower.as_deref()
                         .map(crate::infrastructure::windows::icons::requires_real_file_for_shared_icon)
                         .unwrap_or(false);
@@ -215,9 +219,14 @@ pub(in crate::app) fn spawn_icon_worker(
                         {
                             Ok(cached)
                         } else {
-                            let r = if needs_real_path_shared_icon
-                                || path.exists()
-                            {
+                            // Extension-shared icons MUST NOT go through
+                            // IShellItemImageFactory::GetImage: for extensions
+                            // whose registered icon only has small sizes, Win11
+                            // composites the tiny icon onto a themed backplate
+                            // (large tile, tiny glyph — unlike Explorer's list).
+                            // The extension channel (SHGFI_USEFILEATTRIBUTES +
+                            // SHDefExtractIconW) matches Explorer's rendering.
+                            let r = if needs_real_path_shared_icon {
                                 extract_file_icon_by_path(&path, icon_size)
                             } else {
                                 get_file_type_icon(false, ext_str, icon_size)
