@@ -108,3 +108,6 @@ coverage/
 errors.txt
 debug_output.txt
 bench_perf/target/
+
+# icon/theme probe dumps
+/icon_*.png
