@@ -3,6 +3,12 @@
 use crate::application::context_menu::{ContextMenuItem, ContextMenuState, OPEN_IN_MTT_ID};
 use rust_i18n::t;
 
+/// Shared, cached 32×32 texture of the embedded app icon (also used as the
+/// tab strip's corner logo).
+pub(crate) fn app_icon_texture(ctx: &eframe::egui::Context) -> Option<eframe::egui::TextureHandle> {
+    app_icon(ctx)
+}
+
 fn app_icon(ctx: &eframe::egui::Context) -> Option<eframe::egui::TextureHandle> {
     use eframe::egui;
 

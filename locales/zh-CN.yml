@@ -763,6 +763,12 @@ preview:
   total_size: "总大小：%{size}"
 tab_bar:
   unmute: "取消音频静音"
+  others: "其它"
+  manage_tabs: "标签管理"
+  minimize: "最小化"
+  maximize: "最大化"
+  restore: "还原"
+  close: "关闭"
   mute: "音频静音"
 video:
   detach: "分离视频窗口"

@@ -81,6 +81,15 @@ pub(crate) fn render_tab_bar_layer(
                 TabBarAction::CloseTab(idx) => {
                     app.close_main_tab(idx);
                 }
+                TabBarAction::CloseOtherTabs(keep) => {
+                    // Close every tab except `keep`, highest index first so
+                    // the remaining indices stay valid across removals.
+                    for idx in (0..app.tab_manager.tabs.len()).rev() {
+                        if idx != keep {
+                            app.close_main_tab(idx);
+                        }
+                    }
+                }
                 TabBarAction::DetachTab(idx) => app.detach_main_tab(idx),
                 TabBarAction::Context(index, action) => app.main_tab_action(index, action),
                 TabBarAction::CloseApp => {

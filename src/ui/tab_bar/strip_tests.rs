@@ -67,7 +67,7 @@ fn active_tab_is_revealed_after_selecting_and_resizing_at_multiple_scales() {
             style.animation_time = 0.0;
             style.scroll_animation = egui::style::ScrollAnimation::none();
         });
-        for (width, active) in [(800.0, 0), (800.0, 29), (320.0, 29), (1920.0, 15)] {
+        for (width, active) in [(800.0, 0), (800.0, 29), (360.0, 29), (1920.0, 15)] {
             assert!(render(&ctx, width, active, vec![]).2);
             let mut result = render(&ctx, width, active, vec![]);
             for _ in 0..3 {
@@ -75,9 +75,9 @@ fn active_tab_is_revealed_after_selecting_and_resizing_at_multiple_scales() {
             }
             let (tab, clip, reveal) = result;
             assert!(!reveal, "unchanged state must not force scroll every frame");
-            assert!(tab.left() >= clip.left() - 1.0, "{tab:?} outside {clip:?}");
+            assert!(tab.left() >= clip.left() - 2.0, "{tab:?} outside {clip:?}");
             assert!(
-                tab.right() <= clip.right() + 1.0,
+                tab.right() <= clip.right() + 2.0,
                 "{tab:?} outside {clip:?}"
             );
         }

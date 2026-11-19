@@ -37,8 +37,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
 #[cfg(test)]
 pub(crate) use hit_test::is_caption_drag_region_active;
 pub use hit_test::{
-    clear_caption_drag_region, is_native_caption_drag_enabled, set_caption_drag_region_px,
-    set_native_caption_drag_enabled,
+    clear_caption_drag_region, clear_caption_drag_region_alt, is_native_caption_drag_enabled,
+    set_caption_drag_region_alt_px, set_caption_drag_region_px, set_native_caption_drag_enabled,
 };
 
 /// SIZE_MINIMIZED constant (wParam for WM_SIZE when window is minimized)

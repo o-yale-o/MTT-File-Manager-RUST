@@ -2,8 +2,13 @@ use eframe::egui;
 
 pub(super) const NEW_TAB_WIDTH: f32 = 36.0;
 pub(super) const WINDOW_BUTTON_WIDTH: f32 = 46.0;
+/// Left caption zone reserved for the app logo: 10px caption inset +
+/// 16px icon + 8px gap before the first tab. The zone doubles as a
+/// caption drag handle when overflowing tabs swallow the drag strip.
+pub(super) const LOGO_AREA_WIDTH: f32 = 34.0;
 
 pub(super) struct StripLayout {
+    pub logo: egui::Rect,
     pub tabs: egui::Rect,
     pub new_tab_and_drag: egui::Rect,
     pub controls: egui::Rect,
@@ -15,13 +20,19 @@ impl StripLayout {
     /// `left_padding` from its left edge (Win11 keeps ~10px of caption
     /// around the tab pills); window controls still span the full height.
     pub fn new(rect: egui::Rect, count: usize, top_padding: f32) -> Self {
-        let tabs_left = rect.left() + top_padding;
-        let controls_left = (rect.right() - WINDOW_BUTTON_WIDTH * 3.0).max(tabs_left);
+        let strip_top = rect.top() + top_padding;
+        let tabs_left = (rect.left() + LOGO_AREA_WIDTH).min(rect.right());
+        let controls_left = (rect.right() - WINDOW_BUTTON_WIDTH * 4.0)
+            .max(tabs_left)
+            .min(rect.right());
         let available = (controls_left - tabs_left - NEW_TAB_WIDTH).max(0.0);
         let tab_width = (available / count.max(1) as f32).clamp(100.0, 200.0);
         let tabs_right = tabs_left + (tab_width * count as f32).min(available);
-        let strip_top = rect.top() + top_padding;
         Self {
+            logo: egui::Rect::from_min_max(
+                egui::pos2(rect.left(), strip_top),
+                egui::pos2(tabs_left, rect.bottom()),
+            ),
             tabs: egui::Rect::from_min_max(
                 egui::pos2(tabs_left, strip_top),
                 egui::pos2(tabs_right, rect.bottom()),
@@ -90,7 +101,7 @@ mod tests {
                 let rect = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(width, 36.0));
                 let layout = StripLayout::new(rect, count, 0.0);
                 assert_eq!(layout.controls.right(), rect.right());
-                assert_eq!(layout.controls.width(), WINDOW_BUTTON_WIDTH * 3.0);
+                assert_eq!(layout.controls.width(), WINDOW_BUTTON_WIDTH * 4.0);
                 assert!(layout.new_tab_and_drag.width() >= NEW_TAB_WIDTH);
                 assert_eq!(layout.tabs.right(), layout.new_tab_and_drag.left());
                 assert_eq!(layout.new_tab_and_drag.right(), layout.controls.left());
@@ -106,7 +117,9 @@ mod tests {
             2,
             0.0,
         );
+        // Two tabs cap at 200px each, so they don't stretch into the freed zone.
         assert_eq!(layout.tabs.width(), 400.0);
+        assert_eq!(layout.logo.width(), LOGO_AREA_WIDTH);
         assert!(layout.new_tab_and_drag.width() > NEW_TAB_WIDTH);
     }
 

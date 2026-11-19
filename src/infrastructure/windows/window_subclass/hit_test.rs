@@ -15,6 +15,14 @@ static CAPTION_DRAG_REGION_Y: AtomicI32 = AtomicI32::new(0);
 static CAPTION_DRAG_REGION_W: AtomicI32 = AtomicI32::new(0);
 static CAPTION_DRAG_REGION_H: AtomicI32 = AtomicI32::new(0);
 
+// Secondary caption region: the app logo pinned at the tab strip's left edge.
+// It stays draggable even when overflowing tabs swallow the main drag strip.
+static CAPTION_DRAG_ALT_VALID: AtomicBool = AtomicBool::new(false);
+static CAPTION_DRAG_ALT_X: AtomicI32 = AtomicI32::new(0);
+static CAPTION_DRAG_ALT_Y: AtomicI32 = AtomicI32::new(0);
+static CAPTION_DRAG_ALT_W: AtomicI32 = AtomicI32::new(0);
+static CAPTION_DRAG_ALT_H: AtomicI32 = AtomicI32::new(0);
+
 #[inline]
 pub fn is_native_caption_drag_enabled() -> bool {
     NATIVE_CAPTION_DRAG_ENABLED.load(Ordering::Relaxed)
@@ -42,6 +50,24 @@ pub fn set_caption_drag_region_px(x: i32, y: i32, width: i32, height: i32) {
 
 pub fn clear_caption_drag_region() {
     CAPTION_DRAG_REGION_VALID.store(false, Ordering::Release);
+}
+
+/// Registers the secondary (logo) caption drag region, in client px.
+pub fn set_caption_drag_region_alt_px(x: i32, y: i32, width: i32, height: i32) {
+    if width <= 0 || height <= 0 {
+        clear_caption_drag_region_alt();
+        return;
+    }
+
+    CAPTION_DRAG_ALT_X.store(x, Ordering::Relaxed);
+    CAPTION_DRAG_ALT_Y.store(y, Ordering::Relaxed);
+    CAPTION_DRAG_ALT_W.store(width, Ordering::Relaxed);
+    CAPTION_DRAG_ALT_H.store(height, Ordering::Relaxed);
+    CAPTION_DRAG_ALT_VALID.store(true, Ordering::Release);
+}
+
+pub fn clear_caption_drag_region_alt() {
+    CAPTION_DRAG_ALT_VALID.store(false, Ordering::Release);
 }
 
 #[cfg(test)]
@@ -127,22 +153,32 @@ pub(super) fn handle(hwnd: HWND, lparam: LPARAM) -> LRESULT {
 
 #[inline]
 fn point_in_caption_drag_region(x: i32, y: i32) -> bool {
-    if !CAPTION_DRAG_REGION_VALID.load(Ordering::Acquire) {
-        return false;
-    }
-
-    let rx = CAPTION_DRAG_REGION_X.load(Ordering::Relaxed);
-    let ry = CAPTION_DRAG_REGION_Y.load(Ordering::Relaxed);
-    let rw = CAPTION_DRAG_REGION_W.load(Ordering::Relaxed);
-    let rh = CAPTION_DRAG_REGION_H.load(Ordering::Relaxed);
-
-    if rw <= 0 || rh <= 0 {
-        return false;
-    }
-
-    let right = rx.saturating_add(rw);
-    let bottom = ry.saturating_add(rh);
-    x >= rx && y >= ry && x < right && y < bottom
+    let hit = |valid: &AtomicBool, sx: &AtomicI32, sy: &AtomicI32, sw: &AtomicI32, sh: &AtomicI32| {
+        if !valid.load(Ordering::Acquire) {
+            return false;
+        }
+        let rx = sx.load(Ordering::Relaxed);
+        let ry = sy.load(Ordering::Relaxed);
+        let rw = sw.load(Ordering::Relaxed);
+        let rh = sh.load(Ordering::Relaxed);
+        if rw <= 0 || rh <= 0 {
+            return false;
+        }
+        x >= rx && y >= ry && x < rx.saturating_add(rw) && y < ry.saturating_add(rh)
+    };
+    hit(
+        &CAPTION_DRAG_REGION_VALID,
+        &CAPTION_DRAG_REGION_X,
+        &CAPTION_DRAG_REGION_Y,
+        &CAPTION_DRAG_REGION_W,
+        &CAPTION_DRAG_REGION_H,
+    ) || hit(
+        &CAPTION_DRAG_ALT_VALID,
+        &CAPTION_DRAG_ALT_X,
+        &CAPTION_DRAG_ALT_Y,
+        &CAPTION_DRAG_ALT_W,
+        &CAPTION_DRAG_ALT_H,
+    )
 }
 
 #[cfg(test)]

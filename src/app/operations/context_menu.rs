@@ -6,6 +6,7 @@ pub(crate) mod background;
 mod computer;
 mod grouping;
 mod local_open;
+pub(crate) use local_open::app_icon_texture;
 mod new_submenu;
 mod open_with;
 

@@ -763,6 +763,12 @@ preview:
   total_size: "Общий размер: %{size}"
 tab_bar:
   unmute: "Включить звук"
+  others: "Другие"
+  manage_tabs: "Управление вкладками"
+  minimize: "Свернуть"
+  maximize: "Развернуть"
+  restore: "Восстановить"
+  close: "Закрыть"
   mute: "Отключить звук"
 video:
   detach: "Открепить видео"

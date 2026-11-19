@@ -763,6 +763,12 @@ preview:
   total_size: "Συνολικό μέγεθος: %{size}"
 tab_bar:
   unmute: "Επαναφορά ήχου"
+  others: "Άλλα"
+  manage_tabs: "Διαχείριση καρτελών"
+  minimize: "Ελαχιστοποίηση"
+  maximize: "Μεγιστοποίηση"
+  restore: "Επαναφορά"
+  close: "Κλείσιμο"
   mute: "Σίγαση ήχου"
 video:
   detach: "Αποσύνδεση βίντεο"

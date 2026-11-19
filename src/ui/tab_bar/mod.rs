@@ -27,16 +27,21 @@ mod strip;
 mod strip_tests;
 mod tabs_renderer;
 mod window_controls;
+#[cfg(test)]
+mod window_controls_tests;
 
 pub(crate) use drag_dwell::should_activate_tab_on_drag_hover;
 pub(crate) use icon_style::tab_icon_style;
 
 /// Result of tab bar interaction
+#[derive(Debug)]
 pub enum TabBarAction {
     None,
     SwitchTab(usize),
     CloseTab(usize),
     Context(usize, crate::tabs::TabAction),
+    /// Close every tab except the given index (the list's "鍏跺畠" entry).
+    CloseOtherTabs(usize),
     MoveTab { from: usize, gap: usize },
     DetachTab(usize),
     NewTab,
@@ -76,11 +81,11 @@ pub fn render_tab_bar(
 
     // Colors based on theme (Windows Explorer style - gray tones).
     // Win11 dark structure: strip empty area + inactive tabs use the CONTENT
-    // base (≈RGB 25/32); the selected tab and the toolbar row below share one
-    // brighter block (≈RGB 44) so the active tab visually merges into it.
+    // base (閳湩GB 25/32); the selected tab and the toolbar row below share one
+    // brighter block (閳湩GB 44) so the active tab visually merges into it.
     let is_dark = ui.visuals().dark_mode;
     let active_bg = if is_dark {
-        // Selected tab: Win11's cool-tinted step (≈RGB 26,32,44) for the
+        // Selected tab: Win11's cool-tinted step (閳湩GB 26,32,44) for the
         // system palette; other themes keep their own surface tone.
         crate::ui::theme::palette::tab_active(ui.ctx(), Color32::from_rgb(44, 44, 44))
     } else {
@@ -158,6 +163,68 @@ pub fn render_tab_bar(
         action = tabs_action;
     }
 
+    // App logo pinned to the strip's left edge (Win11/Edge style). It marks
+    // the caption zone and guarantees a draggable handle even when
+    // overflowing tabs swallow the whole strip.
+    ui.scope_builder(egui::UiBuilder::new().max_rect(layout.logo), |ui| {
+        ui.shrink_clip_rect(layout.logo);
+        use crate::infrastructure::windows::window_subclass::{
+            clear_caption_drag_region_alt, is_native_caption_drag_enabled,
+            set_caption_drag_region_alt_px,
+        };
+        let popup_open = egui::Popup::is_any_open(&ctx);
+        let native_caption_drag = is_native_caption_drag_enabled();
+        let sense = if native_caption_drag {
+            egui::Sense::hover()
+        } else {
+            egui::Sense::click_and_drag()
+        };
+        let (_logo_rect, logo_response) = ui.allocate_exact_size(
+            egui::vec2(layout.logo.width(), layout.logo.height()),
+            sense,
+        );
+
+        // While a tab reorder or a popup is active the logo stays client area,
+        // mirroring the new-tab drag strip.
+        if tab_reorder_active || tab_reorder_active || popup_open {
+            clear_caption_drag_region_alt();
+        } else {
+            let ppp = ctx.pixels_per_point();
+            set_caption_drag_region_alt_px(
+                (layout.logo.min.x * ppp).round() as i32,
+                (layout.logo.min.y * ppp).round() as i32,
+                (layout.logo.width() * ppp).round() as i32,
+                (layout.logo.height() * ppp).round() as i32,
+            );
+        }
+
+        // Fallback path when native caption drag is disabled.
+        if !tab_reorder_active
+            && !tab_reorder_active
+            && !popup_open
+            && !native_caption_drag
+            && (logo_response.drag_started() || logo_response.dragged())
+        {
+            ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
+        }
+
+        if let Some(icon) =
+            crate::app::operations::context_menu::app_icon_texture(&ctx)
+        {
+            let size = 16.0;
+            let center = egui::pos2(
+                layout.logo.left() + 10.0 + size * 0.5,
+                bar_rect.top() + tab_top_padding + tab_height * 0.5,
+            );
+            ui.painter().image(
+                icon.id(),
+                egui::Rect::from_center_size(center, egui::vec2(size, size)),
+                egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                Color32::WHITE,
+            );
+        }
+    });
+
     ui.scope_builder(
         egui::UiBuilder::new().max_rect(layout.new_tab_and_drag),
         |ui| {
@@ -183,12 +250,19 @@ pub fn render_tab_bar(
 
     ui.scope_builder(egui::UiBuilder::new().max_rect(layout.controls), |ui| {
         ui.shrink_clip_rect(layout.controls);
+        let tab_titles: Vec<String> = tab_manager
+            .tabs
+            .iter()
+            .map(|tab| tab.title.clone())
+            .collect();
         ui.horizontal(|ui| {
             window_controls::render_window_controls(
                 ui,
-                _frame,
                 strip::WINDOW_BUTTON_WIDTH,
                 tab_height,
+                tab_top_padding,
+                &tab_titles,
+                tab_manager.active_tab,
                 &mut action,
             )
         });

@@ -763,6 +763,12 @@ preview:
   total_size: "Tamanho total: %{size}"
 tab_bar:
   unmute: "Ativar Áudio"
+  others: "Outros"
+  manage_tabs: "Gerenciar abas"
+  minimize: "Minimizar"
+  maximize: "Maximizar"
+  restore: "Restaurar"
+  close: "Fechar"
   mute: "Mutar Áudio"
 video:
   detach: "Desacoplar vídeo"

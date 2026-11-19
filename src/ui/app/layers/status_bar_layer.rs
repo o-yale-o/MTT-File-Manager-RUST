@@ -110,6 +110,11 @@ pub(crate) fn render_status_bar_layer(app: &mut ImageViewerApp, root_ui: &mut eg
         .show(root_ui, |ui| {
             use crate::ui::status_bar::{render_status_bar, StatusBarAction};
             let full_rect = ui.max_rect();
+            // Published so overlay layers (e.g. the window tab list) know
+            // where the status bar top edge sits and can stop above it.
+            ui.ctx().data_mut(|data| {
+                data.insert_temp(egui::Id::new("status_bar_rect"), full_rect);
+            });
             let (content_rect, size_controls_rect) =
                 crate::ui::components::status_bar_size_controls::rects(full_rect, status_height);
             let (status_rect, indicator_rect) =
