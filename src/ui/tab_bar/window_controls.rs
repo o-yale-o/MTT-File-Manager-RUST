@@ -58,15 +58,10 @@ pub(super) fn render_window_controls(
         .on_hover_text(rust_i18n::t!("tab_bar.manage_tabs"));
     // Advance the layout cursor past the logo-sized zone so min/max/close
     // keep their sequential positions to its right (even when hidden).
+    // Always advance by the full logo-sized width — a hidden list button must
+    // not pull min/max/close one slot to the left.
     ui.allocate_exact_size(
-        Vec2::new(
-            if list_visible {
-                super::strip::NEW_TAB_WIDTH
-            } else {
-                0.0
-            },
-            scope_rect.height(),
-        ),
+        Vec2::new(super::strip::NEW_TAB_WIDTH, scope_rect.height()),
         egui::Sense::hover(),
     );
 
@@ -127,6 +122,12 @@ pub(super) fn render_window_controls(
         open = !open;
         ui.ctx().data_mut(|d| d.insert_temp(list_id, open));
     }
+    #[cfg(test)]
+    eprintln!(
+        "OPENSTATE open={open} visible={list_visible} btn_clicked={} time={:?}",
+        list_response.clicked(),
+        ui.input(|i| i.time)
+    );
     if open {
         let ctx = ui.ctx().clone();
         let screen = ctx.input(|i| i.raw.screen_rect.unwrap_or(egui::Rect::NOTHING));
@@ -322,6 +323,15 @@ pub(super) fn render_window_controls(
                                 );
                                 if label.clicked() {
                                     picked = Some(index);
+                                }
+                                // Double-click closes the tab (same as
+                                // double-clicking the tab's own title);
+                                // assigned after the switch so it wins.
+                                // triple_clicked is included because a fast
+                                // "open list" + double-click sequence counts
+                                // as a triple at the pointer level.
+                                if label.double_clicked() || label.triple_clicked() {
+                                    picked_close = Some(index);
                                 }
                                 // The "×" shows on the hovered row and on the
                                 // active (selected) row, 360-browser style.
