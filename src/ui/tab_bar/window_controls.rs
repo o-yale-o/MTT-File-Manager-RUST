@@ -319,7 +319,9 @@ pub(super) fn render_window_controls(
                                 if label.clicked() {
                                     picked = Some(index);
                                 }
-                                if row_hovered {
+                                // The "×" shows on the hovered row and on the
+                                // active (selected) row, 360-browser style.
+                                if row_hovered || is_active {
                                     let x_btn = ui.add(
                                         egui::Button::new(
                                             egui::RichText::new("✕").size(11.0).color(x_color),
