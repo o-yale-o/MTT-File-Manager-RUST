@@ -253,7 +253,17 @@ pub fn render_tab_bar(
         let tab_titles: Vec<String> = tab_manager
             .tabs
             .iter()
-            .map(|tab| tab.title.clone())
+            .map(|tab| {
+                // Same display mapping the tab strip uses: virtual views
+                // (computer, recycle bin, tag filters, OneDrive specials)
+                // get their localized names instead of raw ids like
+                // "::computer::".
+                appearance::display_title_for_tab_path(
+                    &tab.path,
+                    &tab.title,
+                    tag_definitions,
+                )
+            })
             .collect();
         ui.horizontal(|ui| {
             window_controls::render_window_controls(

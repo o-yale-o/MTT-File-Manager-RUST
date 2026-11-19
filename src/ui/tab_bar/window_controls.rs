@@ -145,22 +145,22 @@ pub(super) fn render_window_controls(
             egui::vec2(LIST_WIDTH, list_height),
         );
 
-        // Backdrop: any click outside the list closes it.
-        let mut close_from_backdrop = false;
-        egui::Area::new(list_id.with("backdrop"))
-            .fixed_pos(screen.min)
-            .order(egui::Order::Foreground)
-            .show(&ctx, |ui| {
-                ui.set_min_size(screen.size());
-                let resp = ui.interact(
-                    ui.max_rect(),
-                    list_id.with("backdrop_interact"),
-                    egui::Sense::click(),
-                );
-                if resp.clicked() {
-                    close_from_backdrop = true;
-                }
-            });
+        // Outside-click detection WITHOUT a swallowing backdrop: the press
+        // still reaches whatever widget is under the pointer (a tab, the
+        // strip, …), so one click both acts AND closes the list — 360
+        // browser behavior. Clicks inside the panel or on the toggle button
+        // are ignored here.
+        let (press_started, press_pos) = ctx.input(|i| {
+            (i.pointer.primary_pressed(), i.pointer.interact_pos())
+        });
+        if press_started
+            && press_pos
+                .map(|pos| !panel_rect.contains(pos) && !list_rect.contains(pos))
+                .unwrap_or(false)
+        {
+            open = false;
+            ui.ctx().data_mut(|d| d.insert_temp(list_id, false));
+        }
 
         let mut picked: Option<usize> = None;
         let mut picked_close: Option<usize> = None;
@@ -254,7 +254,10 @@ pub(super) fn render_window_controls(
                                 ui.spacing_mut().item_spacing.x = 0.0;
                                 let label = ui.add_sized(
                                     [row_rect.width() - X_ZONE, ROW_HEIGHT],
-                                    egui::Button::selectable(false, text.clone())
+                                    // Empty main text: the folder name goes to
+                                    // left_text so it hugs the row's left edge
+                                    // without a duplicate on the right.
+                                    egui::Button::selectable(false, "")
                                         .frame(false)
                                         .left_text(text),
                                 );
@@ -312,7 +315,8 @@ pub(super) fn render_window_controls(
                                 ui.spacing_mut().item_spacing.x = 0.0;
                                 let label = ui.add_sized(
                                     [row_rect.width() - X_ZONE, ROW_HEIGHT],
-                                    egui::Button::selectable(is_active, text.clone())
+                                    // Empty main text: see the grey row above.
+                                    egui::Button::selectable(is_active, "")
                                         .frame(false)
                                         .left_text(text),
                                 );
@@ -351,11 +355,7 @@ pub(super) fn render_window_controls(
             });
 
         // Clicking a row (switch or its "x") keeps the list open; only a
-        // click outside the panel (backdrop) or re-clicking the button closes.
-        if close_from_backdrop {
-            open = false;
-            ui.ctx().data_mut(|d| d.insert_temp(list_id, false));
-        }
+        // press outside the panel or re-clicking the button closes it.
         if let Some(index) = picked {
             if index != active_tab {
                 *action = TabBarAction::SwitchTab(index);

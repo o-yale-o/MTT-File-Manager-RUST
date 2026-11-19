@@ -85,6 +85,11 @@ pub(super) fn render_tabs(
             action = TabBarAction::SwitchTab(idx);
         }
 
+        // Double-click on the tab closes it (unless pinned).
+        if response.double_clicked() && !tab.pinned {
+            action = TabBarAction::CloseTab(idx);
+        }
+
         if response.middle_clicked() && !tab.pinned {
             action = TabBarAction::CloseTab(idx);
         }
