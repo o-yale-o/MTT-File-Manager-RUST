@@ -32,19 +32,41 @@ struct CachedText {
     error: Option<String>,
 }
 
+/// Shared loader result used by text and markdown previews.
+pub(crate) struct SharedText {
+    pub text: Arc<String>,
+    pub truncated: bool,
+    pub error: Option<String>,
+}
+
+/// Load (with per-path cache) the displayable text of `path`.
+pub(crate) fn cached_text(ctx: &egui::Context, path: &StdPath) -> SharedText {
+    let id = egui::Id::new("text_preview_cache").with(path.as_os_str());
+    ctx.data_mut(|d| {
+        if let Some(hit) = d.get_temp::<Arc<CachedText>>(id) {
+            return SharedText {
+                text: hit.text.clone(),
+                truncated: hit.truncated,
+                error: hit.error.clone(),
+            };
+        }
+        let loaded: Arc<CachedText> = Arc::new(load_text(path));
+        let shared = SharedText {
+            text: loaded.text.clone(),
+            truncated: loaded.truncated,
+            error: loaded.error.clone(),
+        };
+        d.insert_temp(id, loaded);
+        shared
+    })
+}
+
 /// Win11-Explorer-style: show the file content read-only, white-paper look.
 pub fn render_text_preview(ui: &mut egui::Ui, path: &StdPath) {
-    let id = egui::Id::new("text_preview_cache").with(path.as_os_str());
-    let cached = ui.ctx().data_mut(|d| {
-        if let Some(hit) = d.get_temp::<Arc<CachedText>>(id) {
-            hit
-        } else {
-            let loaded = Arc::new(load_text(path));
-            d.insert_temp(id, loaded.clone());
-            loaded
-        }
-    });
+    let cached = cached_text(ui.ctx(), path);
 
+    let text = cached.text;
+    let truncated = cached.truncated;
     if let Some(err) = &cached.error {
         ui.colored_label(egui::Color32::from_rgb(232, 17, 35), err);
         return;
@@ -70,7 +92,7 @@ pub fn render_text_preview(ui: &mut egui::Ui, path: &StdPath) {
         .show(ui, |ui| {
             ui.set_max_width(ui.available_width());
             ui.style_mut().visuals.override_text_color = Some(text_color);
-            let mut shown = (*cached.text).clone();
+            let mut shown = (*text).clone();
             ui.add(
                 egui::TextEdit::multiline(&mut shown)
                     .desired_rows(12)
@@ -80,7 +102,7 @@ pub fn render_text_preview(ui: &mut egui::Ui, path: &StdPath) {
             );
         });
 
-    if cached.truncated {
+    if truncated {
         ui.add_space(6.0);
         ui.label(
             egui::RichText::new(rust_i18n::t!("preview.text_truncated").to_string())

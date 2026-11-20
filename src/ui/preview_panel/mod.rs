@@ -3,6 +3,7 @@ mod drive_details;
 pub mod fallback_renderer;
 pub mod file_info_table;
 pub mod image_preview;
+pub mod markdown_preview;
 pub mod pdf_preview;
 pub mod text_preview;
 pub mod utils;
@@ -132,6 +133,12 @@ pub fn render_preview_panel(
     if !file.is_dir && pdf_preview::is_pdf_previewable(text_ext) {
         let ctx = ui.ctx().clone();
         pdf_preview::render_pdf_preview(ui, &ctx, &file.path);
+        return action;
+    }
+
+    // === MARKDOWN PREVIEW (rich rendering, egui_commonmark) ===
+    if !file.is_dir && markdown_preview::is_markdown_previewable(text_ext) {
+        markdown_preview::render_markdown_preview(ui, &file.path);
         return action;
     }
 
