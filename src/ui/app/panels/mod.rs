@@ -12,7 +12,9 @@ mod sidebar_panel;
 const LEFT_SIDEBAR_MIN: f32 = 150.0;
 const LEFT_SIDEBAR_MAX: f32 = 500.0;
 const RIGHT_SIDEBAR_MIN: f32 = 250.0;
-const RESIZE_HANDLE_WIDTH: f32 = 6.0;
+/// Invisible grab zone around each divider. Wide enough to stay grabbable
+/// even when the file list's own vertical scrollbar sits at its right edge.
+const RESIZE_HANDLE_WIDTH: f32 = 16.0;
 
 /// The preview panel may grow as wide as the window allows, as long as the
 /// left sidebar (min) and the file list (min 250px) keep their space.

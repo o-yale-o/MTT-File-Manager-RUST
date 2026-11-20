@@ -90,16 +90,21 @@ pub fn render_text_preview(ui: &mut egui::Ui, path: &StdPath) {
         .inner_margin(egui::Margin::same(8))
         .corner_radius(4.0)
         .show(ui, |ui| {
-            ui.set_max_width(ui.available_width());
-            ui.style_mut().visuals.override_text_color = Some(text_color);
-            let mut shown = (*text).clone();
-            ui.add(
-                egui::TextEdit::multiline(&mut shown)
-                    .desired_rows(12)
-                    .desired_width(ui.available_width())
-                    .clip_text(true)
-                    .interactive(false),
-            );
+            // Fixed viewport with NO soft wrap: every file line stays exactly
+            // one visual line; long lines are reached by horizontal scrolling.
+            // (egui 0.35 TextEdit always soft-wraps, so use a plain Label in
+            // Extend mode — `\n` hard breaks are preserved.)
+            egui::ScrollArea::both()
+                .id_salt(("text_preview_scroll", path.as_os_str()))
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.style_mut().visuals.override_text_color = Some(text_color);
+                    ui.add(
+                        egui::Label::new(egui::RichText::new(&*text).monospace())
+                            .extend()
+                            .selectable(true),
+                    );
+                });
         });
 
     if truncated {

@@ -111,7 +111,11 @@ pub fn render_markdown_preview(ui: &mut egui::Ui, path: &StdPath) {
         .ctx()
         .data_mut(|d| d.get_temp::<Arc<Mutex<CommonMarkCache>>>(id))
         .unwrap_or_else(|| Arc::new(Mutex::new(CommonMarkCache::default())));
-    egui::ScrollArea::vertical()
+    // IMPORTANT: `ScrollArea::both()` — a fixed viewport. Markdown tables are
+    // rendered as untruncated egui Grids whose minimum width can far exceed
+    // the panel; without the horizontal clip that minimum propagates out and
+    // pushes the whole preview panel off the window.
+    egui::ScrollArea::both()
         .id_salt(("md_preview_scroll", path.as_os_str()))
         .auto_shrink([false, false])
         .show(ui, |ui| {
@@ -130,5 +134,39 @@ pub fn render_markdown_preview(ui: &mut egui::Ui, path: &StdPath) {
                 .small()
                 .color(egui::Color32::GRAY),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eframe::egui::{Context, RawInput, Vec2};
+
+    /// Render the Markdown pipeline over a real file inside a headless egui
+    /// context — any panic in egui_commonmark surfaces as a test failure.
+    #[test]
+    fn renders_real_world_markdown_without_panicking() {
+        let path = StdPath::new(r"D:\OpenSource\sparrow\CADCraft人机双轨交互方案.md");
+        let Ok(md) = std::fs::read_to_string(path) else {
+            return; // file not present in CI
+        };
+        let _ = md;
+
+        let ctx = Context::default();
+        let mut t = 0.0f64;
+        for _ in 0..3 {
+            t += 0.05;
+            let input = RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    Vec2::new(400.0, 800.0),
+                )),
+                time: Some(t),
+                ..Default::default()
+            };
+            ctx.run_ui(input, |ui| {
+                render_markdown_preview(ui, path);
+            });
+        }
     }
 }
