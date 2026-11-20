@@ -58,10 +58,10 @@ pub(super) fn render_preview_panel_layout(
         }
 
         // Clamp width to valid range BEFORE using it
-        let target_width = app
-            .layout
-            .sidebar_right_width
-            .clamp(super::RIGHT_SIDEBAR_MIN, super::RIGHT_SIDEBAR_MAX);
+        let target_width = app.layout.sidebar_right_width.clamp(
+            super::RIGHT_SIDEBAR_MIN,
+            super::right_sidebar_max(root_ui.ctx().viewport_rect().width()),
+        );
 
         // Use exact_width + resizable(false) to FORCE the width from app state
         // Resize is handled via manual drag handles rendered separately

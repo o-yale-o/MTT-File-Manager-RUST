@@ -12,8 +12,13 @@ mod sidebar_panel;
 const LEFT_SIDEBAR_MIN: f32 = 150.0;
 const LEFT_SIDEBAR_MAX: f32 = 500.0;
 const RIGHT_SIDEBAR_MIN: f32 = 250.0;
-const RIGHT_SIDEBAR_MAX: f32 = 500.0;
 const RESIZE_HANDLE_WIDTH: f32 = 6.0;
+
+/// The preview panel may grow as wide as the window allows, as long as the
+/// left sidebar (min) and the file list (min 250px) keep their space.
+pub(super) fn right_sidebar_max(screen_width: f32) -> f32 {
+    (screen_width - LEFT_SIDEBAR_MIN - 250.0).max(RIGHT_SIDEBAR_MIN)
+}
 
 pub(crate) use sidebar_layout::restore_drives_height as restore_sidebar_drives_height;
 
@@ -131,10 +136,11 @@ fn render_resize_handles(app: &mut ImageViewerApp, ctx: &egui::Context) {
             });
     }
     if app.show_preview_panel {
+        let right_max = right_sidebar_max(screen.width());
         let right_width = app
             .layout
             .sidebar_right_width
-            .clamp(RIGHT_SIDEBAR_MIN, RIGHT_SIDEBAR_MAX);
+            .clamp(RIGHT_SIDEBAR_MIN, right_max);
         let right_handle_x = screen.width() - right_width - RESIZE_HANDLE_WIDTH / 2.0;
         let right_handle_rect = egui::Rect::from_min_size(
             egui::pos2(right_handle_x, top_panels_height),
@@ -151,7 +157,7 @@ fn render_resize_handles(app: &mut ImageViewerApp, ctx: &egui::Context) {
                 if response.dragged() {
                     let delta = -response.drag_delta().x;
                     app.layout.sidebar_right_width = (app.layout.sidebar_right_width + delta)
-                        .clamp(RIGHT_SIDEBAR_MIN, RIGHT_SIDEBAR_MAX);
+                        .clamp(RIGHT_SIDEBAR_MIN, right_max);
                 }
             });
     }

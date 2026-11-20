@@ -3,6 +3,7 @@ mod drive_details;
 pub mod fallback_renderer;
 pub mod file_info_table;
 pub mod image_preview;
+pub mod text_preview;
 pub mod utils;
 pub mod video_preview;
 
@@ -117,6 +118,17 @@ pub fn render_preview_panel(
             );
         });
         return None;
+    }
+
+    // === TEXT PREVIEW (read-only, Win11-Explorer style) ===
+    let text_ext = file
+        .path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("");
+    if !file.is_dir && text_preview::is_text_previewable(text_ext) {
+        text_preview::render_text_preview(ui, &file.path);
+        return action;
     }
 
     ui.vertical_centered(|ui| {

@@ -758,6 +758,7 @@ settings:
   shortcut_go_forward: "Вперёд"
   shortcut_go_up: "На один уровень вверх"
 preview:
+  text_truncated: "Показаны только первые 256 КБ"
   select_item: "Выберите один элемент, чтобы увидеть подробности"
   items_selected: "Выбрано элементов: %{count}"
   total_size: "Общий размер: %{size}"

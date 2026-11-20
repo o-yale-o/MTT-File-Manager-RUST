@@ -758,6 +758,7 @@ settings:
   shortcut_go_forward: "Go forward"
   shortcut_go_up: "Go up one level"
 preview:
+  text_truncated: "Showing the first 256 KB only"
   select_item: "Select a single item to see details"
   items_selected: "%{count} items selected"
   total_size: "Total size: %{size}"
