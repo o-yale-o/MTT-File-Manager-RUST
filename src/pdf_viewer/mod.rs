@@ -26,6 +26,9 @@ mod toolbar;
 mod viewer_app;
 mod virtual_layout;
 
+pub(crate) use renderer::render_preview_page;
+pub(crate) use renderer::PdfPreviewPage;
+
 /// Maximum PDF file size accepted by the viewer (512 MB).
 const MAX_PDF_FILE_SIZE: u64 = 512 * 1024 * 1024;
 

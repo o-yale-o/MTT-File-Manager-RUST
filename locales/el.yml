@@ -758,6 +758,10 @@ settings:
   shortcut_go_forward: "Εμπρός"
   shortcut_go_up: "Ένα επίπεδο επάνω"
 preview:
+  pdf_rendering: "Απόδοση…"
+  pdf_prev_page: "Προηγούμενη σελίδα"
+  pdf_next_page: "Επόμενη σελίδα"
+  pdf_open_viewer: "Άνοιγμα στο παράθυρο προβολής"
   text_truncated: "Εμφανίζονται μόνο τα πρώτα 256 KB"
   select_item: "Επιλέξτε ένα στοιχείο για να δείτε λεπτομέρειες"
   items_selected: "%{count} επιλεγμένα στοιχεία"

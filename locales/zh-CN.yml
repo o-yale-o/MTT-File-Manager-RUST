@@ -758,6 +758,10 @@ settings:
   shortcut_go_forward: "前进"
   shortcut_go_up: "向上一级"
 preview:
+  pdf_rendering: "正在渲染…"
+  pdf_prev_page: "上一页"
+  pdf_next_page: "下一页"
+  pdf_open_viewer: "在新窗口打开阅读器"
   text_truncated: "仅显示前 256 KB 内容"
   select_item: "请选择单个项目查看详情"
   items_selected: "已选中%{count}个项目"

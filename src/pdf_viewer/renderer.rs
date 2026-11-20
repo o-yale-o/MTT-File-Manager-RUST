@@ -164,3 +164,68 @@ pub(super) fn pdfium_rect_to_bounds(rect: PdfRect) -> PdfTextBounds {
         rect.bottom().value,
     )
 }
+
+// ── Preview-panel support (Win11-style inline PDF preview) ──────────────────
+
+/// One rendered preview page plus document page count.
+pub struct PdfPreviewPage {
+    pub pixels: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+    pub page_count: usize,
+    /// Page index actually rendered (clamped).
+    pub page_index: usize,
+}
+
+/// Render one page of `path` fit to `target_width` pixels.
+///
+/// Runs on a background thread (called via channel from the preview panel);
+/// opens and closes the document per call — acceptable for preview usage.
+pub fn render_preview_page(
+    path: &std::path::Path,
+    page_index: usize,
+    target_width: u32,
+) -> Result<PdfPreviewPage, String> {
+    let pdfium = pdfium()?;
+    let document = pdfium
+        .load_pdf_from_file(path, None)
+        .map_err(|e| classify_open_error(e).to_string())?;
+
+    let page_count = usize::from(document.pages().len());
+    if page_count == 0 {
+        return Err("PDF has no pages".into());
+    }
+    let page_index = page_index.min(page_count - 1);
+
+    let page = document
+        .pages()
+        .get(page_index as pdfium_render::prelude::PdfPageIndex)
+        .map_err(|e| e.to_string())?;
+
+    // Fit-to-width: derive pixel height from the page's point aspect ratio.
+    let (w_pts, h_pts) = {
+        let rect = document
+            .pages()
+            .page_size(page_index as pdfium_render::prelude::PdfPageIndex)
+            .map_err(|e| e.to_string())?;
+        (rect.width().value.max(1.0), rect.height().value.max(1.0))
+    };
+    let width_px = target_width.max(64);
+    let height_px = ((h_pts / w_pts) * width_px as f32).round().max(64.0) as u32;
+
+    let bitmap = page
+        .render(
+            width_px as pdfium_render::prelude::Pixels,
+            height_px as pdfium_render::prelude::Pixels,
+            None,
+        )
+        .map_err(|e| format!("RenderPage: {e}"))?;
+
+    Ok(PdfPreviewPage {
+        width: bitmap.width() as u32,
+        height: bitmap.height() as u32,
+        pixels: bitmap.as_rgba_bytes(),
+        page_count,
+        page_index,
+    })
+}

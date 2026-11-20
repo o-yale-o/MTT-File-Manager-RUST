@@ -758,6 +758,10 @@ settings:
   shortcut_go_forward: "Avançar"
   shortcut_go_up: "Subir um nível"
 preview:
+  pdf_rendering: "Renderizando…"
+  pdf_prev_page: "Página anterior"
+  pdf_next_page: "Próxima página"
+  pdf_open_viewer: "Abrir na janela do visualizador"
   text_truncated: "Mostrando apenas os primeiros 256 KB"
   select_item: "Selecione um único item para ver detalhes"
   items_selected: "%{count} itens selecionados"

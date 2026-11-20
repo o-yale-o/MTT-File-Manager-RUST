@@ -3,6 +3,7 @@ mod drive_details;
 pub mod fallback_renderer;
 pub mod file_info_table;
 pub mod image_preview;
+pub mod pdf_preview;
 pub mod text_preview;
 pub mod utils;
 pub mod video_preview;
@@ -120,12 +121,21 @@ pub fn render_preview_panel(
         return None;
     }
 
-    // === TEXT PREVIEW (read-only, Win11-Explorer style) ===
+    // Extension used by the pdf / text branches below.
     let text_ext = file
         .path
         .extension()
         .and_then(|ext| ext.to_str())
         .unwrap_or("");
+
+    // === PDF PREVIEW (Win11-style inline page + pager) ===
+    if !file.is_dir && pdf_preview::is_pdf_previewable(text_ext) {
+        let ctx = ui.ctx().clone();
+        pdf_preview::render_pdf_preview(ui, &ctx, &file.path);
+        return action;
+    }
+
+    // === TEXT PREVIEW (read-only, Win11-Explorer style) ===
     if !file.is_dir && text_preview::is_text_previewable(text_ext) {
         text_preview::render_text_preview(ui, &file.path);
         return action;
