@@ -5,6 +5,7 @@ pub mod file_info_table;
 pub mod image_preview;
 pub mod markdown_preview;
 pub mod pdf_preview;
+pub mod remote_svg_loader;
 pub mod svg_preview;
 pub mod text_preview;
 pub mod utils;
