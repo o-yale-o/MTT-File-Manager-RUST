@@ -762,7 +762,7 @@ preview:
   pdf_prev_page: "Previous page"
   pdf_next_page: "Next page"
   pdf_open_viewer: "Open in viewer window"
-  text_truncated: "Showing the first 256 KB only"
+  text_truncated: "Large file — showing the first 2 MB only"
   select_item: "Select a single item to see details"
   items_selected: "%{count} items selected"
   total_size: "Total size: %{size}"

@@ -5,6 +5,7 @@ pub mod file_info_table;
 pub mod image_preview;
 pub mod markdown_preview;
 pub mod pdf_preview;
+pub mod svg_preview;
 pub mod text_preview;
 pub mod utils;
 pub mod video_preview;
@@ -79,7 +80,7 @@ pub fn render_preview_panel(
             if let Some(tex) = svg_manager.get_icon(ui.ctx(), "copy", 128, [180, 180, 180, 255]) {
                 ui.add(egui::Image::new(&tex).max_size(egui::vec2(128.0, 128.0)));
             } else {
-                ui.label(egui::RichText::new("📚").size(64.0));
+                ui.label(egui::RichText::new("馃摎").size(64.0));
             }
 
             ui.add_space(20.0);
@@ -122,28 +123,32 @@ pub fn render_preview_panel(
         return None;
     }
 
-    // Extension used by the pdf / text branches below.
-    let text_ext = file
-        .path
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .unwrap_or("");
-
+    // Extension used by the preview branches below. Dotfiles like
+    // `.gitignore` have no `extension()` in Rust 鈥?use the whole name after
+    // the leading dot so they still route to the right preview.
+    let text_ext = preview_ext(&file.path);
     // === PDF PREVIEW (Win11-style inline page + pager) ===
-    if !file.is_dir && pdf_preview::is_pdf_previewable(text_ext) {
+    if !file.is_dir && pdf_preview::is_pdf_previewable(&text_ext) {
         let ctx = ui.ctx().clone();
         pdf_preview::render_pdf_preview(ui, &ctx, &file.path);
         return action;
     }
 
     // === MARKDOWN PREVIEW (rich rendering, egui_commonmark) ===
-    if !file.is_dir && markdown_preview::is_markdown_previewable(text_ext) {
+    if !file.is_dir && markdown_preview::is_markdown_previewable(&text_ext) {
         markdown_preview::render_markdown_preview(ui, &file.path);
         return action;
     }
 
+    // === SVG GRAPHIC PREVIEW (resvg raster, MadEdit-style) ===
+    if !file.is_dir && svg_preview::is_svg_previewable(&text_ext) {
+        let ctx = ui.ctx().clone();
+        svg_preview::render_svg_preview(ui, &ctx, &file.path);
+        return action;
+    }
+
     // === TEXT PREVIEW (read-only, Win11-Explorer style) ===
-    if !file.is_dir && text_preview::is_text_previewable(text_ext) {
+    if !file.is_dir && text_preview::is_text_previewable(&text_ext) {
         text_preview::render_text_preview(ui, &file.path);
         return action;
     }
@@ -250,4 +255,24 @@ pub fn render_preview_panel(
     }
 
     action
+}
+
+/// Lowercase extension for preview routing. Falls back to the whole file name
+/// (minus the leading dot) for dotfiles like `.gitignore` / `.zshrc`.
+pub(crate) fn preview_ext(path: &std::path::Path) -> String {
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        return ext.to_ascii_lowercase();
+    }
+    // Dotfiles: Rust's `extension()` returns None for names like `.gitignore`.
+    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+        if let Some(rest) = name.strip_prefix('.') {
+            if !rest.is_empty() {
+                return match rest.to_ascii_lowercase().as_str() {
+                    "zshrc" | "bashrc" | "profile" => "sh".to_string(),
+                    other => other.to_string(),
+                };
+            }
+        }
+    }
+    String::new()
 }

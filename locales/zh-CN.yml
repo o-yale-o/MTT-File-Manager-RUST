@@ -762,7 +762,7 @@ preview:
   pdf_prev_page: "上一页"
   pdf_next_page: "下一页"
   pdf_open_viewer: "在新窗口打开阅读器"
-  text_truncated: "仅显示前 256 KB 内容"
+  text_truncated: "文件较大，仅显示前 2 MB 内容"
   select_item: "请选择单个项目查看详情"
   items_selected: "已选中%{count}个项目"
   total_size: "总大小：%{size}"

@@ -762,7 +762,7 @@ preview:
   pdf_prev_page: "Предыдущая страница"
   pdf_next_page: "Следующая страница"
   pdf_open_viewer: "Открыть в окне просмотра"
-  text_truncated: "Показаны только первые 256 КБ"
+  text_truncated: "Большой файл — показаны только первые 2 МБ"
   select_item: "Выберите один элемент, чтобы увидеть подробности"
   items_selected: "Выбрано элементов: %{count}"
   total_size: "Общий размер: %{size}"
