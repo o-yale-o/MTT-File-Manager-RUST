@@ -354,3 +354,81 @@ mod tests {
             .any(|pixel| pixel[0] > 200 && pixel[1] < 80 && pixel[2] < 80));
     }
 }
+
+#[cfg(test)]
+mod cjk_font_probe {
+    use super::*;
+
+    #[test]
+    fn probe_real_docx_fonts_and_scripts() {
+        let path = Path::new(r"E:\doc\软著\丰铭-上位机通讯中间件V1 软件著作权申请\丰铭上位机通讯中间件V1 设计说明书.docx");
+        if !path.exists() {
+            return;
+        }
+        let mut renderer = match DocxRenderer::open(path) {
+            Ok(r) => r,
+            Err(e) => {
+                println!("OPEN ERR {e}");
+                return;
+            }
+        };
+        // 通过渲染第0页触发字体链
+        let _ = renderer.render_page(0);
+        let dl = renderer.search_display_list();
+        // 统计 display list 里的字体链 id 使用情况（简单打印页面数量即可）
+        println!("pages: {}", dl.pages.len());
+        let page = renderer.render_page(0).unwrap();
+        println!("page0 pixels: {}x{} skipped_images={}", page.width, page.height, page.skipped_images);
+    }
+}
+
+#[cfg(test)]
+mod cjk_requirements_probe {
+    use super::*;
+
+    #[test]
+    fn probe_font_requirements() {
+        let path = Path::new(r"E:\doc\软著\丰铭-上位机通讯中间件V1 软件著作权申请\丰铭上位机通讯中间件V1 设计说明书.docx");
+        if !path.exists() {
+            return;
+        }
+        let bytes = std::fs::read(path).unwrap();
+        let limits = docx_parse::xml::ParseLimits::default();
+        let parsed =
+            docx_parse::s9::parse_docx_s9_wire_with_limits(&bytes, docx_parse::s9::S9ParseOptions::default(), &limits).unwrap();
+        let package = parsed.document.package;
+        let engine = EngineSession::new(0x4d54_444f_4358);
+        let engine = EngineSession::new(0x4d54_444f_4358);
+        docx_edit::seed_from_docx(engine.doc(), &bytes).unwrap();
+        let probe = region_request(&package, None).unwrap();
+        let req = engine
+            .layout_font_requirements_json(&probe.to_string())
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_str(&req).unwrap();
+        println!("requirements: {v:#}");
+    }
+}
+
+#[cfg(test)]
+mod font_register_probe {
+    #[test]
+    fn probe_cjk_font_registration() {
+        use ooxml_text::font_store::FontStore;
+        let fonts_dir = std::env::var_os("WINDIR").map(|w| std::path::PathBuf::from(w).join("Fonts")).unwrap();
+        for file in ["simhei.ttf", "simsun.ttc", "msyh.ttc", "Deng.ttf"] {
+            let bytes = match std::fs::read(fonts_dir.join(file)) {
+                Ok(b) => b,
+                Err(e) => {
+                    println!("{file}: READ ERR {e}");
+                    continue;
+                }
+            };
+            let mut store = FontStore::new();
+            match store.register(bytes.clone()) {
+                Ok(id) => println!("{file}: REGISTERED id={id:?}"),
+                Err(e) => println!("{file}: REGISTER ERR {e:?}"),
+            }
+            let _ = bytes;
+        }
+    }
+}

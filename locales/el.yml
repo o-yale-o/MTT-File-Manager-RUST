@@ -758,7 +758,8 @@ settings:
   shortcut_go_forward: "Εμπρός"
   shortcut_go_up: "Ένα επίπεδο επάνω"
 preview:
-  pdf_rendering: "Απόδοση…"
+  pdf_rendering: ""
+  docx_render_timeout: "Λήξη χρόνου απόδοσης DOCX (πολύπλοκο έγγραφο) — κάντε διπλό κλικ για πλήρη προβολή"
   pdf_prev_page: "Προηγούμενη σελίδα"
   pdf_next_page: "Επόμενη σελίδα"
   pdf_open_viewer: "Άνοιγμα στο παράθυρο προβολής"

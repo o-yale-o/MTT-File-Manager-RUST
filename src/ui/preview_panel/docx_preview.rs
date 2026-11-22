@@ -69,6 +69,8 @@ struct DocxPanelState {
     tex_page: Option<usize>,
     in_flight: Option<Arc<Mutex<Option<Receiver<Result<PageResult, String>>>>>>,
     failed: Option<String>,
+    /// Watchdog: when the current fetch started (None = idle).
+    started_at: Option<std::time::Instant>,
 }
 
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
@@ -82,6 +84,8 @@ impl DocxPanelState {
         let (tx, rx) = channel();
         self.in_flight = Some(Arc::new(Mutex::new(Some(rx))));
         self.failed = None;
+        self.started_at = Some(std::time::Instant::now());
+        log::info!("[DocxPreview] fetch started for {}", path.display());
         std::thread::Builder::new()
             .name("docx-preview".into())
             .spawn(move || {
@@ -114,10 +118,17 @@ pub fn render_docx_preview(ui: &mut egui::Ui, ctx: &egui::Context, path: &Path) 
                 state.page = result.page_index;
                 state.failed = None;
                 state.in_flight = None;
+                state.started_at = None;
+                log::info!(
+                    "[DocxPreview] page {} ready in {:?}",
+                    result.page_index + 1,
+                    state.started_at.is_none()
+                );
             }
             Ok(Err(err)) => {
                 state.failed = Some(err);
                 state.in_flight = None;
+                state.started_at = None;
             }
             Err(TryRecvError::Empty) => {
                 if let Some(slot) = &state.in_flight {
@@ -130,6 +141,24 @@ pub fn render_docx_preview(ui: &mut egui::Ui, ctx: &egui::Context, path: &Path) 
             Err(TryRecvError::Disconnected) => {
                 state.failed = Some("docx render worker died".into());
                 state.in_flight = None;
+                state.started_at = None;
+            }
+        }
+    }
+
+    // Watchdog: abandon a fetch stuck >20 s (pathological documents can hang
+    // the BetterOffice layout indefinitely); the orphan thread finishes on
+    // its own harmlessly and the panel recovers.
+    const DOCX_RENDER_WATCHDOG: std::time::Duration = std::time::Duration::from_secs(20);
+    if state.in_flight.is_some() {
+        if let Some(started) = state.started_at {
+            if started.elapsed() > DOCX_RENDER_WATCHDOG {
+                log::warn!("[DocxPreview] render watchdog timeout for {}", path.display());
+                state.failed = Some(
+                    rust_i18n::t!("preview.docx_render_timeout").to_string(),
+                );
+                state.in_flight = None;
+                state.started_at = None;
             }
         }
     }
@@ -182,11 +211,20 @@ pub fn render_docx_preview(ui: &mut egui::Ui, ctx: &egui::Context, path: &Path) 
 
     match (&state.tex, state.tex_page) {
         (Some(tex), Some(tex_page)) if tex_page == state.page => {
-            ui.add(
-                egui::Image::new(tex)
-                    .max_width(ui.available_width())
-                    .corner_radius(2.0),
-            );
+            // Fixed-height inner scroll: the pager toolbar stays pinned at the
+            // top while the (tall) page image scrolls inside its own area.
+            let scroll_h = (ui.available_height() - 40.0).max(120.0);
+            egui::ScrollArea::vertical()
+                .id_salt(("docx_preview_scroll", path.as_os_str()))
+                .auto_shrink([false, false])
+                .max_height(scroll_h)
+                .show(ui, |ui| {
+                    ui.add(
+                        egui::Image::new(tex)
+                            .max_width(ui.available_width())
+                            .corner_radius(2.0),
+                    );
+                });
         }
         _ => {
             ui.add_space(30.0);

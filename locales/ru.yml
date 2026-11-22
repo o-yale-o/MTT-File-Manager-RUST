@@ -758,7 +758,8 @@ settings:
   shortcut_go_forward: "Вперёд"
   shortcut_go_up: "На один уровень вверх"
 preview:
-  pdf_rendering: "Рендеринг…"
+  pdf_rendering: ""
+  docx_render_timeout: "Превышено время рендеринга DOCX (сложный документ) — откройте двойным щелчком в полном просмотрщике"
   pdf_prev_page: "Предыдущая страница"
   pdf_next_page: "Следующая страница"
   pdf_open_viewer: "Открыть в окне просмотра"

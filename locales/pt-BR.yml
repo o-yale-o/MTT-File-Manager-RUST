@@ -758,7 +758,8 @@ settings:
   shortcut_go_forward: "Avançar"
   shortcut_go_up: "Subir um nível"
 preview:
-  pdf_rendering: "Renderizando…"
+  pdf_rendering: ""
+  docx_render_timeout: "Tempo limite de renderização do DOCX (documento complexo) — clique duas vezes para abrir no visualizador completo"
   pdf_prev_page: "Página anterior"
   pdf_next_page: "Próxima página"
   pdf_open_viewer: "Abrir na janela do visualizador"

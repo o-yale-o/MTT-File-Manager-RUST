@@ -759,6 +759,7 @@ settings:
   shortcut_go_up: "向上一级"
 preview:
   pdf_rendering: "正在渲染…"
+  docx_render_timeout: "DOCX 渲染超时（文档较复杂），请双击使用完整阅读器打开"
   pdf_prev_page: "上一页"
   pdf_next_page: "下一页"
   pdf_open_viewer: "在新窗口打开阅读器"

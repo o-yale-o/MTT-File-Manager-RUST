@@ -759,6 +759,7 @@ settings:
   shortcut_go_up: "Go up one level"
 preview:
   pdf_rendering: "Rendering…"
+  docx_render_timeout: "DOCX render timed out (complex document) — double-click to open in the full viewer"
   pdf_prev_page: "Previous page"
   pdf_next_page: "Next page"
   pdf_open_viewer: "Open in viewer window"

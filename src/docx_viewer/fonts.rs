@@ -28,6 +28,16 @@ const WINDOWS_FONTS: &[(&str, &str, bool, bool)] = &[
     ("segoeuiz.ttf", "Segoe UI", true, true),
     ("seguisym.ttf", "Segoe UI Symbol", false, false),
     ("malgun.ttf", "Malgun Gothic", false, false),
+    // CJK fonts (坑: 之前只注册拉丁字体, 中文全部缺字成方框).
+    // .ttc collections may be unsupported by FontStore — skipped gracefully.
+    ("msyh.ttc", "Microsoft YaHei", false, false),
+    ("msyhbd.ttc", "Microsoft YaHei", true, false),
+    ("simsun.ttc", "SimSun", false, false),
+    ("simhei.ttf", "SimHei", false, false),
+    ("simfang.ttf", "FangSong", false, false),
+    ("simkai.ttf", "KaiTi", false, false),
+    ("Deng.ttf", "DengXian", false, false),
+    ("Dengb.ttf", "DengXian", true, false),
 ];
 
 struct FontFace {
@@ -120,8 +130,13 @@ impl RegisteredFonts {
             {
                 let fallback = match script {
                     "arabic" => find_face(&faces, "segoe ui", false, false),
-                    "hebrew" | "eastAsian" | "east_asian" => {
+                    // NOTE: 脚本标记可能是 "cjk-sc"/"cjk-tc"（MadEdit 同款引擎输出）,
+                    // 不只是 "eastAsian" — 漏配则中文回退永不触发变成方框.
+                    "hebrew" | "eastAsian" | "east_asian" | "cjk" | "cjk-sc" | "cjk-tc" => {
                         find_face(&faces, "microsoft yahei", false, false)
+                            .or_else(|| find_face(&faces, "simhei", false, false))
+                            .or_else(|| find_face(&faces, "simsun", false, false))
+                            .or_else(|| find_face(&faces, "dengxian", false, false))
                             .or_else(|| find_face(&faces, "segoe ui", false, false))
                     }
                     _ => None,
@@ -168,8 +183,18 @@ fn select_face(faces: &[FontFace], family: &str, bold: bool, italic: bool) -> Op
         &["times new roman", "cambria", "arial"][..]
     } else if requested.contains("courier") || requested.contains("consolas") {
         &["courier new", "segoe ui"][..]
-    } else if requested.contains("yahei") || requested.contains("jhenghei") {
-        &["microsoft yahei", "microsoft jhenghei", "segoe ui"][..]
+    } else if requested.contains("yahei") || requested.contains("微软雅黑") {
+        &["microsoft yahei", "simhei", "simsun", "segoe ui"][..]
+    } else if requested.contains("simsun") || requested.contains("宋体") {
+        &["simsun", "simhei", "microsoft yahei", "segoe ui"][..]
+    } else if requested.contains("simhei") || requested.contains("黑体") {
+        &["simhei", "simsun", "microsoft yahei", "segoe ui"][..]
+    } else if requested.contains("楷") || requested.contains("kaiti") {
+        &["kaiti", "simkai", "simsun", "microsoft yahei"][..]
+    } else if requested.contains("仿宋") || requested.contains("fangsong") {
+        &["fangsong", "simsun", "microsoft yahei"][..]
+    } else if requested.contains("等线") || requested.contains("dengxian") {
+        &["dengxian", "microsoft yahei", "simhei", "segoe ui"][..]
     } else {
         &[requested.as_str(), "segoe ui", "arial"][..]
     };

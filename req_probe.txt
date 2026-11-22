@@ -1,0 +1,354 @@
+﻿cargo : warning: mtt-file-manager@0.2.12: pdfium.dll not found in vendor/ or PDFIUM_DYNAMIC_LIB_PATH; standalone PDF vi
+ewer will require the runtime to be staged manually.
+所在位置 行:1 字符: 205
++ ... $env:PATH"; cargo test --offline --lib cjk_requirements_probe -- --no ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: mtt-fi...taged manually.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+warning: unused import: `windows::Win32::Foundation::HWND`
+   --> src\infrastructure\windows\app_theme.rs:131:9
+    |
+131 |     use windows::Win32::Foundation::HWND;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `XlsxRenderer` and `XlsxViewportTile`
+  --> src\xlsx_viewer\mod.rs:92:27
+   |
+92 | pub(crate) use renderer::{XlsxRenderer, XlsxViewportTile};
+   |                           ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+
+warning: unused variable: `engine`
+   --> src\docx_viewer\renderer.rs:400:13
+    |
+400 |         let engine = EngineSession::new(0x4d54_444f_4358);
+    |             ^^^^^^ help: if this is intentional, prefix it with an underscore: `_engine`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> src\ui\preview_panel\remote_svg_loader.rs:175:23
+    |
+175 | fn clamp_texture_size(mut image: egui::ColorImage, max_side: usize) -> egui::ColorImage {
+    |                       ----^^^^^
+    |                       |
+    |                       help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `needs_start` is never read
+   --> src\ui\preview_panel\remote_svg_loader.rs:407:31
+    |
+407 |         let mut needs_start = false;
+    |                               ^^^^^ this value is reassigned later and never used
+...
+427 |                     Err(TryRecvError::Disconnected) => needs_start = true,
+    |                                                        ------------------ `needs_start` is overwritten here befor
+e the previous value is read
+    |
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `bytes`
+   --> src\ui\preview_panel\remote_svg_loader.rs:551:16
+    |
+551 |         let Ok(bytes) = std::fs::read(path) else { return };
+    |                ^^^^^ help: if this is intentional, prefix it with an underscore: `_bytes`
+
+warning: unused variable: `row`
+   --> src\ui\preview_panel\xlsx_preview.rs:303:39
+    |
+303 |                         for (row_idx, row) in state.rows.iter().enumerate() {
+    |                                       ^^^ help: if this is intentional, prefix it with an underscore: `_row`
+
+warning: unused variable: `zoom`
+   --> src\ui\preview_panel\xlsx_preview.rs:272:13
+    |
+272 |         let zoom = state.zoom();
+    |             ^^^^ help: if this is intentional, prefix it with an underscore: `_zoom`
+
+warning: value assigned to `zoom_saved` is never read
+   --> src\ui\preview_panel\xlsx_preview.rs:365:9
+    |
+365 |         zoom_saved = state.zoom;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: value assigned to `switch_to` is never read
+   --> src\ui\preview_panel\xlsx_preview.rs:254:40
+    |
+254 |     let mut switch_to: Option<usize> = None;
+    |                                        ^^^^ this value is reassigned later and never used
+...
+360 |     switch_to = render_sheet_tabs(ui, &state.sheet_names, state.sheet_index, state.in_flight.is_some(), &mut stat
+e.zoom);
+    |     -------------------------------------------------------------------------------------------------------------
+------- `switch_to` is overwritten here before the previous value is read
+
+warning: value assigned to `open` is never read
+   --> src\ui\tab_bar\window_controls.rs:162:13
+    |
+162 |             open = false;
+    |             ^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+
+warning: type `docx_viewer::search::SearchBounds` is more private than the item `docx_viewer::renderer::DocxRenderer::s
+elected_text`
+   --> src\docx_viewer\renderer.rs:115:5
+    |
+115 |     pub fn selected_text(&self, page_index: usize, bounds: SearchBounds) -> String {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `docx_viewer::renderer:
+:DocxRenderer::selected_text` is reachable at visibility `pub(crate)`
+    |
+note: but type `docx_viewer::search::SearchBounds` is only usable at visibility `pub(in crate::docx_viewer)`
+   --> src\docx_viewer\search.rs:9:1
+    |
+  9 | pub(super) struct SearchBounds {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `VirtualLines` is more private than the item `SharedText::virtual_lines`
+  --> src\ui\preview_panel\text_preview.rs:68:5
+   |
+68 |     pub virtual_lines: Option<Arc<VirtualLines>>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `SharedText::virtual_lines` is reachable at visibility `pub
+(crate)`
+   |
+note: but type `VirtualLines` is only usable at visibility `pub(self)`
+  --> src\ui\preview_panel\text_preview.rs:56:1
+   |
+56 | struct VirtualLines {
+   | ^^^^^^^^^^^^^^^^^^^
+
+warning: type `XlsxSearchMatch` is more private than the item `XlsxRenderer::search`
+   --> src\xlsx_viewer\renderer.rs:142:5
+    |
+142 |     pub fn search(&self, query: &str) -> Vec<XlsxSearchMatch> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `XlsxRenderer::search` is reachable at visib
+ility `pub(crate)`
+    |
+note: but type `XlsxSearchMatch` is only usable at visibility `pub(in crate::xlsx_viewer)`
+   --> src\xlsx_viewer\renderer.rs:33:1
+    |
+ 33 | pub(super) struct XlsxSearchMatch {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TARGET_PAGE_WIDTH` is never used
+  --> src\ui\preview_panel\docx_preview.rs:16:7
+   |
+16 | const TARGET_PAGE_WIDTH: u32 = 1240;
+   |       ^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `col_chars` is never read
+  --> src\ui\preview_panel\xlsx_preview.rs:28:16
+   |
+21 | pub(crate) struct SheetData {
+   |                   --------- field in this struct
+...
+28 |     pub(crate) col_chars: Vec<usize>,
+   |                ^^^^^^^^^
+
+warning: field `total_size` is never read
+  --> src\ui\preview_panel\text_preview.rs:46:5
+   |
+43 | struct CachedText {
+   |        ---------- field in this struct
+...
+46 |     total_size: u64,
+   |     ^^^^^^^^^^
+
+warning: unused return value of `eframe::egui::Context::run_ui` that must be used
+   --> src\ui\preview_panel\markdown_preview.rs:257:13
+    |
+257 | /             ctx.run_ui(input, |ui| {
+258 | |                 render_markdown_preview(ui, path);
+259 | |             });
+    | |______________^
+    |
+    = note: `#[warn(unused_must_use)]` (part of `#[warn(unused)]`) on by default
+help: use `let _ = ...` to ignore the resulting value
+    |
+257 |             let _ = ctx.run_ui(input, |ui| {
+    |             +++++++
+
+warning: unused return value of `eframe::egui::Context::run_ui` that must be used
+   --> src\ui\preview_panel\markdown_preview.rs:373:13
+    |
+373 | /             ctx.run_ui(input, |ui| {
+374 | |                 let mut guard = cache.lock().unwrap();
+375 | |                 egui_commonmark::CommonMarkViewer::new()
+376 | |                     .max_image_width(Some(ui.available_width() as usize))
+377 | |                     .show(ui, &mut guard, &md);
+378 | |             });
+    | |______________^
+    |
+help: use `let _ = ...` to ignore the resulting value
+    |
+373 |             let _ = ctx.run_ui(input, |ui| {
+    |             +++++++
+
+warning: `mtt-file-manager` (lib test) generated 19 warnings (run `cargo fix --lib -p mtt-file-manager --tests` to appl
+y 7 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.13s
+     Running unittests src\lib.rs (target\debug\build\mtt-file-manager/dfbe93b78e8e068f\out\mtt_file_manager-dfbe93b78e
+8e068f.exe)
+
+running 1 test
+requirements: [
+  {
+    "bold": false,
+    "family": "Arial",
+    "italic": false,
+    "key": "arial|0|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": true,
+    "family": "Arial",
+    "italic": false,
+    "key": "arial|1|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": false,
+    "family": "Calibri",
+    "italic": false,
+    "key": "calibri|0|0"
+  },
+  {
+    "bold": false,
+    "family": "Cascadia Mono",
+    "italic": false,
+    "key": "cascadia mono|0|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": false,
+    "family": "Times New Roman",
+    "italic": false,
+    "key": "times new roman|0|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": true,
+    "family": "Times New Roman",
+    "italic": false,
+    "key": "times new roman|1|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": false,
+    "family": "Wingdings",
+    "italic": false,
+    "key": "wingdings|0|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": false,
+    "family": "",
+    "italic": false,
+    "key": "|0|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": true,
+    "family": "",
+    "italic": false,
+    "key": "|1|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": false,
+    "family": "仿宋",
+    "italic": false,
+    "key": "仿宋|0|0"
+  },
+  {
+    "bold": false,
+    "family": "宋体",
+    "italic": false,
+    "key": "宋体|0|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": true,
+    "family": "宋体",
+    "italic": false,
+    "key": "宋体|1|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": false,
+    "family": "等线 Light",
+    "italic": false,
+    "key": "等线 light|0|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": true,
+    "family": "等线 Light",
+    "italic": false,
+    "key": "等线 light|1|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": false,
+    "family": "等线",
+    "italic": false,
+    "key": "等线|0|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": false,
+    "family": "黑体",
+    "italic": false,
+    "key": "黑体|0|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  },
+  {
+    "bold": true,
+    "family": "黑体",
+    "italic": false,
+    "key": "黑体|1|0",
+    "scripts": [
+      "cjk-sc"
+    ]
+  }
+]
+test docx_viewer::renderer::cjk_requirements_probe::probe_font_requirements ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2842 filtered out; finished in 0.23s
+

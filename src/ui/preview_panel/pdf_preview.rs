@@ -116,11 +116,20 @@ pub fn render_pdf_preview(ui: &mut egui::Ui, ctx: &egui::Context, path: &StdPath
 
     match (&state.tex, state.tex_page) {
         (Some(tex), Some(tex_page)) if tex_page == state.page => {
-            ui.add(
-                egui::Image::new(tex)
-                    .max_width(ui.available_width())
-                    .corner_radius(2.0),
-            );
+            // Fixed-height inner scroll keeps the pager toolbar pinned at the
+            // top while the tall page image scrolls in its own area.
+            let scroll_h = (ui.available_height() - 40.0).max(120.0);
+            egui::ScrollArea::vertical()
+                .id_salt(("pdf_preview_scroll", path.as_os_str()))
+                .auto_shrink([false, false])
+                .max_height(scroll_h)
+                .show(ui, |ui| {
+                    ui.add(
+                        egui::Image::new(tex)
+                            .max_width(ui.available_width())
+                            .corner_radius(2.0),
+                    );
+                });
         }
         _ => {
             let min = egui::vec2(ui.available_width(), LOADING_HINT_MIN_HEIGHT);
