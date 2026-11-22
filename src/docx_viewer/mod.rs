@@ -96,6 +96,8 @@ pub fn open_docx_viewer(path: PathBuf) {
 }
 
 /// Entry point for `--docx-viewer <path>`.
+pub(crate) use renderer::{DocxPagePixels, DocxRenderer};
+
 pub fn run_standalone(path: PathBuf) -> eframe::Result<()> {
     apply_saved_locale();
     if let Err(error) = validate_docx_path(&path) {

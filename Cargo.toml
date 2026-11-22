@@ -66,6 +66,8 @@ fontdb_sys = { package = "fontdb", version = "0.23", features = ["fs", "memmap"]
 syntect = { version = "5.3", default-features = false, features = ["default-syntaxes", "default-themes", "regex-onig", "yaml-load", "plist-load"] }
 # Direct downloads for remote SVG previews (3.x reads env proxy by default)
 ureq = "3.5"
+# XLSX/XLS data reading for the preview table (calamine = read-only xlsx/xls/ods)
+calamine = "0.27"
 # Text encoding auto-detection (same stack as MadEdit)
 encoding_rs = "0.8"
 chardetng = "0.1"

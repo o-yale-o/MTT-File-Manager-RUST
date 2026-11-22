@@ -15,7 +15,7 @@ use super::search::SearchBounds;
 
 const MAX_PAGE_SIDE: f64 = 16_384.0;
 
-pub(super) struct DocxPagePixels {
+pub(crate) struct DocxPagePixels {
     pub page_index: usize,
     pub width: usize,
     pub height: usize,
@@ -23,7 +23,7 @@ pub(super) struct DocxPagePixels {
     pub skipped_images: usize,
 }
 
-pub(super) struct DocxRenderer {
+pub(crate) struct DocxRenderer {
     display_list: Arc<DisplayList>,
     page_sizes: Vec<(f32, f32)>,
     fonts: RegisteredFonts,

@@ -4,9 +4,11 @@ pub mod fallback_renderer;
 pub mod file_info_table;
 pub mod image_preview;
 pub mod markdown_preview;
+pub mod docx_preview;
 pub mod pdf_preview;
 pub mod remote_svg_loader;
 pub mod svg_preview;
+pub mod xlsx_preview;
 pub mod text_preview;
 pub mod utils;
 pub mod video_preview;
@@ -132,6 +134,20 @@ pub fn render_preview_panel(
     if !file.is_dir && pdf_preview::is_pdf_previewable(&text_ext) {
         let ctx = ui.ctx().clone();
         pdf_preview::render_pdf_preview(ui, &ctx, &file.path);
+        return action;
+    }
+
+    // === DOCX PREVIEW (BetterOffice raster, page pager) ===
+    if !file.is_dir && docx_preview::is_docx_previewable(&text_ext) {
+        let ctx = ui.ctx().clone();
+        docx_preview::render_docx_preview(ui, &ctx, &file.path);
+        return action;
+    }
+
+    // === XLSX PREVIEW (BetterOffice sheet raster + sheet switcher) ===
+    if !file.is_dir && xlsx_preview::is_xlsx_previewable(&text_ext) {
+        let ctx = ui.ctx().clone();
+        xlsx_preview::render_xlsx_preview(ui, &ctx, &file.path);
         return action;
     }
 

@@ -603,3 +603,35 @@ mod gif_in_app_probe {
         println!("NEVER READY");
     }
 }
+
+#[cfg(test)]
+mod xlsx_load_probe {
+    #[test]
+    fn probe_load_real_xlsx() {
+        let path = std::path::Path::new(r"E:\doc\周报\周报-陆升鹏2026.11.20.xlsx");
+        let start = std::time::Instant::now();
+        let result = crate::ui::preview_panel::xlsx_preview::load_sheet(path, 0);
+        match result {
+            Ok(data) => println!(
+                "OK rows={} max_cols={} total={}x{} names={:?} elapsed={:?}",
+                data.rows.len(), data.max_cols, data.total_rows, data.total_cols,
+                data.sheet_names, start.elapsed()
+            ),
+            Err(e) => println!("ERR {e} elapsed={:?}", start.elapsed()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod zoom_store_probe {
+    #[test]
+    fn probe_zoom_store_roundtrip() {
+        let z = crate::ui::preview_panel::xlsx_preview::zoom_store_probe_helpers::load_zoom_default();
+        println!("initial zoom: {z}");
+        crate::ui::preview_panel::xlsx_preview::zoom_store_probe_helpers::save_zoom(1.75);
+        let z2 = crate::ui::preview_panel::xlsx_preview::zoom_store_probe_helpers::load_zoom_default();
+        println!("after save 1.75 -> {z2}");
+        assert!((z2 - 1.75).abs() < 0.001);
+        crate::ui::preview_panel::xlsx_preview::zoom_store_probe_helpers::save_zoom(z);
+    }
+}

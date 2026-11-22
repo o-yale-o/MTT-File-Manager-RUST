@@ -6,11 +6,11 @@ use betteroffice_xlsx::{
 };
 use rust_i18n::t;
 
-pub(super) struct OpenedWorkbook {
+pub(crate) struct OpenedWorkbook {
     pub sheet_info: SheetInfo,
 }
 
-pub(super) struct XlsxViewportTile {
+pub(crate) struct XlsxViewportTile {
     pub viewport: Viewport,
     pub body_offset_x: f32,
     pub body_offset_y: f32,
@@ -52,7 +52,7 @@ struct SearchSheetGeometry {
     frozen_height: f32,
 }
 
-pub(super) struct XlsxRenderer {
+pub(crate) struct XlsxRenderer {
     pub(super) workbook: Workbook,
     sheet_count: usize,
 }

@@ -89,6 +89,8 @@ pub fn open_xlsx_viewer(path: PathBuf) {
     }
 }
 
+pub(crate) use renderer::{XlsxRenderer, XlsxViewportTile};
+
 pub fn run_standalone(path: PathBuf) -> eframe::Result<()> {
     apply_saved_locale();
     if let Err(error) = validate_xlsx_path(&path) {
