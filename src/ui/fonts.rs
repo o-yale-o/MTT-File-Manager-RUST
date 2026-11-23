@@ -134,6 +134,19 @@ pub fn install_system_fonts(fonts: &mut egui::FontDefinitions) {
         false
     };
 
+    // Fixedsys Excelsior 3.01 (embedded, always present): the primary
+    // monospace face for text/code previews. It only covers Latin glyphs, so
+    // CJK text falls through to the system fonts registered below.
+    fonts.font_data.insert(
+        "fsex300".to_owned(),
+        std::sync::Arc::new(egui::FontData::from_static(
+            crate::embedded_assets::FSEX300_TTF,
+        )),
+    );
+    if let Some(monospace) = fonts.families.get_mut(&egui::FontFamily::Monospace) {
+        monospace.insert(0, "fsex300".to_owned());
+    }
+
     load("segoe_ui", "segoeui.ttf", fonts);
     load("segoe_ui_symbol", "seguisym.ttf", fonts);
 

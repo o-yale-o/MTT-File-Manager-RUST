@@ -3,6 +3,10 @@
 // Embed the Remix Icon font
 pub const REMIXICON_TTF: &[u8] = include_bytes!("../assets/remixicon.ttf");
 
+// Embed Fixedsys Excelsior 3.01 (the classic Fixedsys look-alike) used as the
+// primary monospace face for text/code previews.
+pub const FSEX300_TTF: &[u8] = include_bytes!("../assets/fonts/FSEX300.ttf");
+
 // Embed application icon (PNG)
 pub const APP_ICON_PNG: &[u8] = include_bytes!("../appicon.png");
 

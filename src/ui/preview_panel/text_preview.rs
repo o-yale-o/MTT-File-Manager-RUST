@@ -92,6 +92,10 @@ pub(crate) fn cached_text(ctx: &egui::Context, path: &StdPath) -> SharedText {
     })
 }
 
+/// Text preview renders with the embedded Fixedsys Excelsior 3.01 face at a
+/// fixed 16 px size (see `fonts.rs`: fsex300 is first in the Monospace family).
+const PREVIEW_FONT_SIZE: f32 = 16.0;
+
 /// Win11-Explorer-style: show the file content read-only, white-paper look.
 pub fn render_text_preview(ui: &mut egui::Ui, path: &StdPath) {
     let cached = cached_text(ui.ctx(), path);
@@ -139,9 +143,13 @@ pub fn render_text_preview(ui: &mut egui::Ui, path: &StdPath) {
                             ui.add(egui::Label::new(text_widget).extend().selectable(true));
                         } else {
                             ui.add(
-                                egui::Label::new(egui::RichText::new(&*text).monospace())
-                                    .extend()
-                                    .selectable(true),
+                                egui::Label::new(
+                                    egui::RichText::new(&*text)
+                                        .monospace()
+                                        .size(PREVIEW_FONT_SIZE),
+                                )
+                                .extend()
+                                .selectable(true),
                             );
                         }
                     });
@@ -158,12 +166,9 @@ fn render_virtual_text(
     virt: &VirtualLines,
     text_color: egui::Color32,
 ) {
-    let font_id = ui
-        .style()
-        .text_styles
-        .get(&egui::TextStyle::Monospace)
-        .cloned()
-        .unwrap_or_else(|| egui::FontId::monospace(12.0));
+    // Fixed size: the preview always renders at PREVIEW_FONT_SIZE regardless
+    // of the global Monospace text style.
+    let font_id = egui::FontId::monospace(PREVIEW_FONT_SIZE);
     let row_h = ui.fonts_mut(|f| f.row_height(&font_id)) + 4.0;
 
     let line_count = virt.offsets.len().saturating_sub(1);
@@ -285,7 +290,7 @@ fn build_highlight_job(
 
     let mut highlighter = HighlightLines::new(syntax, theme);
     let mut job = egui::text::LayoutJob::default();
-    let font_id = egui::FontId::monospace(12.0);
+    let font_id = egui::FontId::monospace(PREVIEW_FONT_SIZE);
 
     for line in syntect::util::LinesWithEndings::from(text) {
         let ranges = highlighter
