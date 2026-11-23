@@ -96,6 +96,34 @@ pub(crate) fn cached_text(ctx: &egui::Context, path: &StdPath) -> SharedText {
 /// fixed 16 px size (see `fonts.rs`: fsex300 is first in the Monospace family).
 const PREVIEW_FONT_SIZE: f32 = 16.0;
 
+/// egui cannot shape U+0009 TAB: neither egui's embedded fonts nor the CJK
+/// fallbacks carry a tab glyph, so every tab paints as a tofu box (MadEdit
+/// implements tab stops itself, which is why it renders the same file fine).
+/// Expand each tab to the next TAB_STOP_COLS column before rendering.
+const TAB_STOP_COLS: usize = 4;
+
+/// Expand tabs in one line to `TAB_STOP_COLS` column stops.
+fn expand_tabs(line: &str) -> String {
+    if !line.contains('\t') {
+        return line.to_owned();
+    }
+    let mut out = String::with_capacity(line.len() + 16);
+    let mut col = 0usize;
+    for ch in line.chars() {
+        if ch == '\t' {
+            let next = (col / TAB_STOP_COLS + 1) * TAB_STOP_COLS;
+            while col < next {
+                out.push(' ');
+                col += 1;
+            }
+        } else {
+            out.push(ch);
+            col += 1;
+        }
+    }
+    out
+}
+
 /// Win11-Explorer-style: show the file content read-only, white-paper look.
 pub fn render_text_preview(ui: &mut egui::Ui, path: &StdPath) {
     let cached = cached_text(ui.ctx(), path);
@@ -131,6 +159,9 @@ pub fn render_text_preview(ui: &mut egui::Ui, path: &StdPath) {
                 // virtualization — file size no longer matters).
                 render_virtual_text(ui, path, &text, &virt, text_color);
             } else {
+                // Small file: expand tabs once per path and cache, then render
+                // the whole text (highlighted or plain) as one widget.
+                let text = cached_expanded_text(ui.ctx(), path, &text);
                 let highlighted = highlighted_job(ui.ctx(), path, &text, dark_mode);
                 egui::ScrollArea::both()
                     .id_salt(("text_preview_scroll", path.as_os_str()))
@@ -155,6 +186,20 @@ pub fn render_text_preview(ui: &mut egui::Ui, path: &StdPath) {
                     });
             }
         });
+}
+
+/// Tab-expanded copy of the cached text, cached per path (the expansion is
+/// deterministic, so it only runs on first render of each file).
+fn cached_expanded_text(ctx: &egui::Context, path: &StdPath, text: &str) -> Arc<String> {
+    let id = egui::Id::new("text_preview_expanded").with(path.as_os_str());
+    ctx.data_mut(|d| {
+        if let Some(hit) = d.get_temp::<Arc<String>>(id) {
+            return hit;
+        }
+        let expanded: Arc<String> = Arc::new(expand_tabs(text));
+        d.insert_temp(id, expanded.clone());
+        expanded
+    })
 }
 
 /// Virtualized viewer for big files: reserves the full scroll extent, then
@@ -196,6 +241,14 @@ fn render_virtual_text(
                 let line = &text[start..end];
                 let line = line.strip_suffix('\n').unwrap_or(line);
                 let line = line.strip_suffix('\r').unwrap_or(line);
+                // Expand tabs per visible line (cheap: only what is on screen).
+                let expanded;
+                let line = if line.contains('\t') {
+                    expanded = expand_tabs(line);
+                    &expanded[..]
+                } else {
+                    line
+                };
                 let galley = ui.painter().layout_no_wrap(
                     line.to_owned(),
                     font_id.clone(),
@@ -409,18 +462,24 @@ fn build_virtual_lines(text: &str) -> VirtualLines {
     let mut offsets = vec![0u32];
     let mut max_line_chars = 0usize;
     let mut line_start = 0usize;
+    let mut line_tabs = 0usize;
     for (idx, ch) in text.char_indices() {
         if ch == '\n' {
             let len = idx - line_start;
-            max_line_chars = max_line_chars.max(len);
+            // Tabs expand to TAB_STOP_COLS columns at render time; account for
+            // the extra width in the horizontal scroll extent.
+            max_line_chars = max_line_chars.max(len + line_tabs * (TAB_STOP_COLS - 1));
             offsets.push((idx + 1) as u32);
             line_start = idx + 1;
+            line_tabs = 0;
+        } else if ch == '\t' {
+            line_tabs += 1;
         }
     }
     // Final line without trailing newline.
     if line_start < text.len() {
         let len = text.len() - line_start;
-        max_line_chars = max_line_chars.max(len);
+        max_line_chars = max_line_chars.max(len + line_tabs * (TAB_STOP_COLS - 1));
     }
     offsets.push(text.len() as u32);
     VirtualLines {
