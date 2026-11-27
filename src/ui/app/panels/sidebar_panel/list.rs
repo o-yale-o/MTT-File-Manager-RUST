@@ -1,9 +1,9 @@
-//! 【列表】 page of the left dock, modeled on MadEdit's file view:
+//! 【历史文件夹】 page of the left dock, modeled on MadEdit's file view:
 //!
-//! * a 收藏 root that expands into groups of folders,
+//! * a 快速打开 root that expands into groups of folders,
 //! * each group expands into its folders (click navigates, double-click on the
 //!   group opens every folder as a tab),
-//! * a 最近访问的文件夹 section with per-row removal.
+//! * a sibling 最近访问 root with per-row removal.
 //!
 //! MadEdit records recently opened files; this file manager navigates by
 //! folder, so the equivalents here are folders and folder paths.
@@ -87,7 +87,7 @@ pub(super) fn render(
             ui.set_min_width(viewport_width);
             ui.spacing_mut().item_spacing.y = 2.0;
 
-            // ── 收藏 root ────────────────────────────────────────────
+            // ── 快速打开 root ────────────────────────────────────────
             let root_id = egui::Id::new("favorites_root_row");
             let (root, _) = row(
                 ui,
@@ -262,62 +262,62 @@ pub(super) fn render(
                     }
                     ui.add_space(2.0);
                 }
+            }
 
-                // ── 最近访问的文件夹 ──────────────────────────────────
-                ui.add_space(8.0);
-                let (recent_row, _) = row(
-                    ui,
-                    egui::Id::new("favorites_recent_row"),
-                    &t!("favorites.recent"),
-                    0.0,
-                    Some(recent_expanded),
-                    recent.len(),
-                    false,
-                    true,
-                );
-                if recent_row.clicked() {
-                    action = Some(ListAction::ToggleRecent);
+            // ── 最近访问（与【快速打开】同级的根节点）──────────────
+            ui.add_space(8.0);
+            let (recent_row, _) = row(
+                ui,
+                egui::Id::new("favorites_recent_row"),
+                &t!("favorites.recent"),
+                0.0,
+                Some(recent_expanded),
+                recent.len(),
+                false,
+                true,
+            );
+            if recent_row.clicked() {
+                action = Some(ListAction::ToggleRecent);
+            }
+            if recent_expanded {
+                if recent.is_empty() {
+                    ui.add_space(2.0);
+                    ui.horizontal(|ui| {
+                        ui.add_space(RECENT_ITEM_INDENT);
+                        ui.add(
+                            egui::Label::new(
+                                egui::RichText::new(t!("favorites.recent_empty").to_string())
+                                    .weak(),
+                            )
+                            .wrap(),
+                        );
+                    });
                 }
-                if recent_expanded {
-                    if recent.is_empty() {
-                        ui.add_space(2.0);
-                        ui.horizontal(|ui| {
-                            ui.add_space(RECENT_ITEM_INDENT);
-                            ui.add(
-                                egui::Label::new(
-                                    egui::RichText::new(t!("favorites.recent_empty").to_string())
-                                        .weak(),
-                                )
-                                .wrap(),
-                            );
+                for path in &recent {
+                    let label = folder_label(path, names_only);
+                    let (recent_item, remove) = row(
+                        ui,
+                        egui::Id::new(("favorites_recent_item", path.as_str())),
+                        &label,
+                        RECENT_ITEM_INDENT,
+                        None,
+                        0,
+                        true,
+                        false,
+                    );
+                    let recent_item = recent_item.on_hover_text(path.as_str());
+                    if recent_item.clicked() {
+                        action = Some(ListAction::OpenFolder {
+                            group_id: None,
+                            path: path.clone(),
                         });
                     }
-                    for path in &recent {
-                        let label = folder_label(path, names_only);
-                        let (recent_item, remove) = row(
-                            ui,
-                            egui::Id::new(("favorites_recent_item", path.as_str())),
-                            &label,
-                            RECENT_ITEM_INDENT,
-                            None,
-                            0,
-                            true,
-                            false,
-                        );
-                        let recent_item = recent_item.on_hover_text(path.as_str());
-                        if recent_item.clicked() {
-                            action = Some(ListAction::OpenFolder {
-                                group_id: None,
-                                path: path.clone(),
-                            });
-                        }
-                        if remove.is_some_and(|remove| remove.clicked()) {
-                            action = Some(ListAction::RemoveRecent(path.clone()));
-                        }
+                    if remove.is_some_and(|remove| remove.clicked()) {
+                        action = Some(ListAction::RemoveRecent(path.clone()));
                     }
                 }
-                ui.add_space(4.0);
             }
+            ui.add_space(4.0);
         });
 
     // Write the editor text back before a commit reads it.
