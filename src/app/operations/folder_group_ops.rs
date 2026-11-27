@@ -1,7 +1,9 @@
 //! Saved tab groups: capture the open tabs as a named Quick Access group and
 //! restore the whole group with one command (like browser bookmark groups).
 use crate::app::dual_panel::ActivePanel;
-use crate::app::favorites_state::{FavoritesRename, FavoritesRenameTarget, PendingFavoriteOpen};
+use crate::app::favorites_state::{
+    FavoritesDrag, FavoritesRename, FavoritesRenameTarget, PendingFavoriteOpen,
+};
 use crate::app::state::sidebar_tree_state::reveal::same_path;
 use crate::app::ImageViewerApp;
 use eframe::egui;
@@ -249,6 +251,30 @@ impl ImageViewerApp {
         ));
     }
 
+    /// Drop one folder row into a possibly different group. `None` insertion
+    /// appends to the destination group's end; a same-group drop with an index
+    /// falls back to the in-group reorder path.
+    pub(crate) fn favorites_move_item(
+        &mut self,
+        from_group: i64,
+        path: &str,
+        to_group: i64,
+        insertion: Option<usize>,
+    ) {
+        if from_group == to_group {
+            if let Some(index) = insertion {
+                self.favorites_drop_item(from_group, path, index);
+            }
+            return;
+        }
+        if self
+            .app_state_db
+            .move_folder_group_item(from_group, path, to_group, insertion)
+        {
+            self.folder_groups = self.app_state_db.get_all_folder_groups();
+        }
+    }
+
     /// Apply the inline rename. A blank group name keeps the old name; a blank
     /// item name restores the default folder label.
     pub(crate) fn favorites_commit_rename(&mut self) {
@@ -278,6 +304,65 @@ impl ImageViewerApp {
 
     pub(crate) fn favorites_cancel_rename(&mut self) {
         self.favorites_rename = None;
+    }
+
+    /// Remember which 【列表】 row the pointer started dragging.
+    pub(crate) fn favorites_set_drag(&mut self, drag: Option<FavoritesDrag>) {
+        self.favorites_drag = drag;
+    }
+
+    /// Drop a group row at the given insertion index of the *current* display
+    /// order (inserting before the row at that index). Persists the new order;
+    /// one-click group loading follows it.
+    pub(crate) fn favorites_drop_group(&mut self, from_id: i64, insertion: usize) {
+        let Some(from_index) = self.folder_groups.iter().position(|group| group.id == from_id)
+        else {
+            self.favorites_drag = None;
+            return;
+        };
+        let mut order: Vec<i64> = self.folder_groups.iter().map(|group| group.id).collect();
+        let target = insertion.min(order.len());
+        if target != from_index && target != from_index + 1 {
+            let moved = order.remove(from_index);
+            let to = if from_index < target { target - 1 } else { target };
+            order.insert(to, moved);
+            self.app_state_db.reorder_folder_groups(&order);
+            self.folder_groups = self.app_state_db.get_all_folder_groups();
+            // Keep the drag alive so the row keeps following the pointer for
+            // further moves; only releasing the button ends the drag.
+        }
+        // A no-op drop (dropped next to the original spot) keeps the drag
+        // alive so the row can continue past adjacent dead zones.
+    }
+
+    /// Drop one folder row at the given insertion index of its group's current
+    /// display order. The saved order is what one-click group loading uses.
+    pub(crate) fn favorites_drop_item(&mut self, group_id: i64, from_path: &str, insertion: usize) {
+        let Some(group) = self.folder_groups.iter().find(|group| group.id == group_id) else {
+            self.favorites_drag = None;
+            return;
+        };
+        let Some(from_index) = group
+            .items
+            .iter()
+            .position(|item| item.path.eq_ignore_ascii_case(from_path))
+        else {
+            self.favorites_drag = None;
+            return;
+        };
+        let mut order: Vec<String> = group.items.iter().map(|item| item.path.clone()).collect();
+        let target = insertion.min(order.len());
+        if target != from_index && target != from_index + 1 {
+            let moved = order.remove(from_index);
+            let to = if from_index < target { target - 1 } else { target };
+            order.insert(to, moved);
+            self.app_state_db.reorder_folder_group_items(group_id, &order);
+            self.folder_groups = self.app_state_db.get_all_folder_groups();
+            // Keep the drag alive so the row keeps following the pointer for
+            // further moves; only releasing the button ends the drag.
+        }
+        // A no-op drop (dropped next to the original spot) keeps the drag
+        // alive so the row can continue past adjacent dead zones.
     }
 
     pub(crate) fn favorites_toggle_root(&mut self) {
@@ -322,6 +407,45 @@ impl ImageViewerApp {
         if self.recent_folders.len() != before {
             self.save_preferences();
         }
+    }
+
+    /// Drag a 最近访问 row into a 快速打开 group: the folder is added to the
+    /// group (custom position, `None` appends) and removed from the recent
+    /// list. Adding a folder that is already in the group keeps it there —
+    /// the row still leaves the recent list, which is the user's intent.
+    pub(crate) fn favorites_recent_to_group(
+        &mut self,
+        path: &str,
+        to_group: i64,
+        insertion: Option<usize>,
+    ) {
+        let added = self.favorites_add_paths(Some(to_group), vec![path.to_owned()]);
+        if added == 0 {
+            let already_in_group = self
+                .folder_groups
+                .iter()
+                .find(|group| group.id == to_group)
+                .is_some_and(|group| group.contains_path(path));
+            if !already_in_group {
+                self.folder_groups = self.app_state_db.get_all_folder_groups();
+                self.remove_recent_folder(path);
+                return;
+            }
+        }
+        if let Some(index) = insertion {
+            // Position the freshly appended row at the requested index.
+            if let Some(group) = self.folder_groups.iter().find(|group| group.id == to_group) {
+                let mut order: Vec<String> =
+                    group.items.iter().map(|item| item.path.clone()).collect();
+                if let Some(last) = order.pop() {
+                    let index = index.min(order.len());
+                    order.insert(index, last);
+                    self.app_state_db.reorder_folder_group_items(to_group, &order);
+                }
+            }
+        }
+        self.folder_groups = self.app_state_db.get_all_folder_groups();
+        self.remove_recent_folder(path);
     }
 }
 

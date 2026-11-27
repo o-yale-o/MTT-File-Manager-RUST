@@ -181,6 +181,123 @@ impl AppStateDb {
         }
     }
 
+    /// Persist a new display order of groups (the list must contain every
+    /// existing id exactly once). [WRITER]
+    pub fn reorder_folder_groups(&self, ordered_ids: &[i64]) {
+        let Ok(db) = self.writer.lock() else {
+            return;
+        };
+        for (position, id) in ordered_ids.iter().enumerate() {
+            let _ = db.execute(
+                "UPDATE folder_groups SET position = ? WHERE id = ?",
+                params![position as i64, id],
+            );
+        }
+    }
+
+    /// Persist a new display order of one group's folders (`ordered_paths`
+    /// must contain every path of the group exactly once). [WRITER]
+    pub fn reorder_folder_group_items(&self, id: i64, ordered_paths: &[String]) {
+        let Ok(db) = self.writer.lock() else {
+            return;
+        };
+        for (position, path) in ordered_paths.iter().enumerate() {
+            let _ = db.execute(
+                "UPDATE folder_group_paths SET position = ?
+                 WHERE group_id = ? AND path = ?",
+                params![position as i64, id, path],
+            );
+        }
+    }
+
+    /// Move one folder from group `from_id` into group `to_id`, keeping its
+    /// custom display name. `insertion` (`None` = append) is the target
+    /// position index in the destination group. Returns false when the path
+    /// already exists in the destination. Both groups are renumbered without
+    /// gaps. [WRITER]
+    pub fn move_folder_group_item(
+        &self,
+        from_id: i64,
+        path: &str,
+        to_id: i64,
+        insertion: Option<usize>,
+    ) -> bool {
+        let Ok(db) = self.writer.lock() else {
+            return false;
+        };
+        // Duplicate in destination refuses the move.
+        let exists: bool = db
+            .query_row(
+                "SELECT COUNT(*) FROM folder_group_paths WHERE group_id = ? AND path = ?",
+                params![to_id, path],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|count| count > 0)
+            .unwrap_or(true);
+        if exists || from_id == to_id {
+            return false;
+        }
+        // Carry the custom display name over.
+        let name: Option<String> = db
+            .query_row(
+                "SELECT name FROM folder_group_paths WHERE group_id = ? AND path = ?",
+                params![from_id, path],
+                |row| row.get(0),
+            )
+            .ok();
+        if db
+            .execute(
+                "DELETE FROM folder_group_paths WHERE group_id = ? AND path = ?",
+                params![from_id, path],
+            )
+            .is_err()
+        {
+            return false;
+        }
+        let position = match insertion {
+            Some(index) => {
+                let index = index as i64;
+                let _ = db.execute(
+                    "UPDATE folder_group_paths SET position = position + 1
+                     WHERE group_id = ? AND position >= ?",
+                    params![to_id, index],
+                );
+                index
+            }
+            None => {
+                db.query_row(
+                    "SELECT COALESCE(MAX(position), -1) + 1 FROM folder_group_paths
+                     WHERE group_id = ?",
+                    params![to_id],
+                    |row| row.get::<_, i64>(0),
+                )
+                .unwrap_or(0)
+            }
+        };
+        let inserted = db
+            .execute(
+                "INSERT INTO folder_group_paths (group_id, path, position, name)
+                 VALUES (?, ?, ?, ?)",
+                params![to_id, path, position, name],
+            )
+            .is_ok();
+        // Compact the source group's positions after the removal.
+        if let Ok(mut stmt) =
+            db.prepare("SELECT path FROM folder_group_paths WHERE group_id = ? ORDER BY position")
+        {
+            if let Ok(rows) = stmt.query_map(params![from_id], |row| row.get::<_, String>(0)) {
+                let remaining: Vec<String> = rows.flatten().collect();
+                for (position, path) in remaining.iter().enumerate() {
+                    let _ = db.execute(
+                        "UPDATE folder_group_paths SET position = ? WHERE group_id = ? AND path = ?",
+                        params![position as i64, from_id, path],
+                    );
+                }
+            }
+        }
+        inserted
+    }
+
     /// Remove a group and its folders. [WRITER]
     pub fn delete_folder_group(&self, id: i64) {
         if let Ok(db) = self.writer.lock() {
@@ -237,6 +354,31 @@ mod tests {
 
         db.delete_folder_group(id);
         assert!(db.get_all_folder_groups().is_empty());
+        drop(db);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn reordering_groups_and_items_persists_display_order() {
+        let dir = temp_state_dir();
+        let db = AppStateDb::new(dir.clone()).expect("test db");
+        let a = db.create_folder_group("A").expect("create A");
+        let b = db.create_folder_group("B").expect("create B");
+        db.add_folder_group_items(a, &["A1".to_string(), "A2".to_string(), "A3".to_string()]);
+
+        // Drag B above A.
+        db.reorder_folder_groups(&[b, a]);
+        let groups = db.get_all_folder_groups();
+        assert_eq!(groups[0].id, b);
+        assert_eq!(groups[1].id, a);
+
+        // Drag A2 to the front of its group.
+        db.reorder_folder_group_items(a, &["A2".to_string(), "A3".to_string(), "A1".to_string()]);
+        let groups = db.get_all_folder_groups();
+        let items: Vec<_> = groups.iter().find(|g| g.id == a).expect("group A")
+            .paths().map(str::to_owned).collect();
+        assert_eq!(items, vec!["A2", "A3", "A1"]);
+
         drop(db);
         let _ = std::fs::remove_dir_all(&dir);
     }

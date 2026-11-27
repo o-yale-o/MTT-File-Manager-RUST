@@ -814,6 +814,8 @@ pub struct ImageViewerApp {
     pub favorites_rename: Option<crate::app::favorites_state::FavoritesRename>,
     /// Favorite folder awaiting an off-thread existence check before opening.
     pub pending_favorite_open: Option<crate::app::favorites_state::PendingFavoriteOpen>,
+    /// Row currently drag-reordered in the 【列表】 page, if any.
+    pub favorites_drag: Option<crate::app::favorites_state::FavoritesDrag>,
     /// Recently visited folders (persisted, newest first), used by 【列表】.
     /// Kept separate from the per-tab navigation history so removing an entry
     /// never breaks back/forward.

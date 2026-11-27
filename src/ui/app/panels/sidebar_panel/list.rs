@@ -51,6 +51,26 @@ enum ListAction {
     ToggleShowNames,
     ToggleRecent,
     RemoveRecent(String),
+    /// Pointer grabbed a row for drag-reordering (`None` = release/cancel).
+    SetDrag(Option<crate::app::favorites_state::FavoritesDrag>),
+    /// Drop a group at the given insertion index of the current order.
+    DropGroup { id: i64, insertion: usize },
+    /// Drop a folder row at the given insertion index of its group's order.
+    DropItem { group_id: i64, path: String, insertion: usize },
+    /// Drop a folder row into another group (`None` insertion appends).
+    MoveItemBetweenGroups {
+        from_group_id: i64,
+        path: String,
+        to_group_id: i64,
+        insertion: Option<usize>,
+    },
+    /// Drag a 最近访问 row into a 快速打开 group (`None` insertion appends);
+    /// the entry is removed from the recent list once it lands.
+    RecentToGroup {
+        path: String,
+        to_group_id: i64,
+        insertion: Option<usize>,
+    },
 }
 
 pub(super) fn render(
@@ -74,6 +94,12 @@ pub(super) fn render(
         .as_ref()
         .map(|state| state.text.clone())
         .unwrap_or_default();
+    // Drag-reorder in progress (spans frames), snapshot before the UI closure.
+    let drag = app.favorites_drag.clone();
+    let mut drop_action: Option<ListAction> = None;
+    // The hovered target group already contains the dragged folder: the line
+    // turns red with a × and releasing does nothing.
+    let mut drop_invalid = false;
     let mut action: Option<ListAction> = None;
 
     ui.spacing_mut().scroll.fade.strength = 0.0;
@@ -98,6 +124,7 @@ pub(super) fn render(
                 0,
                 false,
                 true,
+                false,
             );
             if root.clicked() {
                 action = Some(ListAction::ToggleRoot);
@@ -127,7 +154,7 @@ pub(super) fn render(
                         );
                     });
                 }
-                for group in &groups {
+                for (group_index, group) in groups.iter().enumerate() {
                     let editing_group = rename_target
                         .as_ref()
                         .is_some_and(|target| target_is_group(target, group.id));
@@ -156,7 +183,122 @@ pub(super) fn render(
                             group.items.len(),
                             false,
                             true,
+                            true,
                         );
+                        // Drag-reorder: grab on drag start, show the insertion
+                        // line while hovering other rows, drop on release.
+                        // Only the four-way cursor while a drag is actually
+                        // active; plain hover keeps the normal arrow.
+                        if drag.is_some() && ui.rect_contains_pointer(group_row.rect) {
+                            ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+                        }
+                        if let Some(drag_payload) = &drag {
+                            match drag_payload {
+                                // Reordering group rows among themselves.
+                                crate::app::favorites_state::FavoritesDrag::Group(
+                                    drag_id,
+                                ) => {
+                                    // Keep the grabbed row tinted so the drag is visible.
+                                    if *drag_id == group_id
+                                        && ui.is_rect_visible(group_row.rect)
+                                    {
+                                        ui.painter().rect_filled(
+                                            group_row.rect,
+                                            4.0,
+                                            egui::Color32::from_rgba_unmultiplied(
+                                                0, 120, 215, 60,
+                                            ),
+                                        );
+                                    } else if *drag_id != group_id
+                                        && row_hit(ui, group_row.rect)
+                                    {
+                                        let after = drop_insertion(
+                                            ui,
+                                            group_row.rect,
+                                            GROUP_INDENT,
+                                            false,
+                                        );
+                                        drop_action = Some(ListAction::DropGroup {
+                                            id: *drag_id,
+                                            insertion: group_index + usize::from(after),
+                                        });
+                                    }
+                                }
+                                // Dropping a folder row onto a group header
+                                // appends it to that group's end; refused when
+                                // the group already contains the folder.
+                                crate::app::favorites_state::FavoritesDrag::Item {
+                                    group_id: from_group,
+                                    path,
+                                } => {
+                                    if ui.is_rect_visible(group_row.rect)
+                                        && row_hit(ui, group_row.rect)
+                                    {
+                                        let target_has_it = groups
+                                            .iter()
+                                            .find(|group| group.id == group_id)
+                                            .is_some_and(|group| group.contains_path(path));
+                                        drop_invalid |= target_has_it;
+                                        if target_has_it {
+                                            dashed_header_refused(ui, group_row.rect);
+                                        } else {
+                                            ui.painter().rect_stroke(
+                                                group_row.rect,
+                                                4.0,
+                                                egui::Stroke::new(
+                                                    1.5,
+                                                    egui::Color32::from_rgb(0, 120, 215),
+                                                ),
+                                                egui::StrokeKind::Outside,
+                                            );
+                                        }
+                                        drop_action = Some(ListAction::MoveItemBetweenGroups {
+                                            from_group_id: *from_group,
+                                            path: path.clone(),
+                                            to_group_id: group_id,
+                                            insertion: None,
+                                        });
+                                    }
+                                }
+                                // Dropping a 最近访问 row onto a group header
+                                // appends it to that group and clears the entry;
+                                // refused when the group already has the folder.
+                                crate::app::favorites_state::FavoritesDrag::Recent(path) => {
+                                    if ui.is_rect_visible(group_row.rect)
+                                        && row_hit(ui, group_row.rect)
+                                    {
+                                        let target_has_it = groups
+                                            .iter()
+                                            .find(|group| group.id == group_id)
+                                            .is_some_and(|group| group.contains_path(path));
+                                        drop_invalid |= target_has_it;
+                                        if target_has_it {
+                                            dashed_header_refused(ui, group_row.rect);
+                                        } else {
+                                            ui.painter().rect_stroke(
+                                                group_row.rect,
+                                                4.0,
+                                                egui::Stroke::new(
+                                                    1.5,
+                                                    egui::Color32::from_rgb(0, 120, 215),
+                                                ),
+                                                egui::StrokeKind::Outside,
+                                            );
+                                        }
+                                        drop_action = Some(ListAction::RecentToGroup {
+                                            path: path.clone(),
+                                            to_group_id: group_id,
+                                            insertion: None,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        if group_row.drag_started() {
+                            action = Some(ListAction::SetDrag(Some(
+                                crate::app::favorites_state::FavoritesDrag::Group(group_id),
+                            )));
+                        }
                         if group_row.double_clicked() {
                             action = Some(ListAction::OpenGroup(group_id));
                         } else if group_row.clicked() {
@@ -182,7 +324,7 @@ pub(super) fn render(
                     }
 
                     if group.expanded {
-                        for item in &group.items {
+                        for (item_index, item) in group.items.iter().enumerate() {
                             let editing_item = rename_target.as_ref().is_some_and(|target| {
                                 target_is_item(target, group.id, &item.path)
                             });
@@ -219,7 +361,103 @@ pub(super) fn render(
                                 0,
                                 true,
                                 false,
+                                true,
                             );
+                            // Same drag-reorder protocol as group rows, but
+                            // scoped to rows of the dragged item's own group.
+                            // Four-way cursor only while actually dragging.
+                            if drag.is_some() && ui.rect_contains_pointer(item_row.rect) {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+                            }
+                            if let Some(drag_payload) = &drag {
+                            match drag_payload {
+                                // The dragged row itself: tint it so the drag
+                                // is visible.
+                                crate::app::favorites_state::FavoritesDrag::Item {
+                                    group_id: drag_group,
+                                    path: drag_path,
+                                } if *drag_group == group.id
+                                    && drag_path.eq_ignore_ascii_case(&item.path)
+                                    && ui.is_rect_visible(item_row.rect) =>
+                                {
+                                    ui.painter().rect_filled(
+                                        item_row.rect,
+                                        4.0,
+                                        egui::Color32::from_rgba_unmultiplied(0, 120, 215, 60),
+                                    );
+                                }
+                                // In-group reorder: insert at the hovered position.
+                                crate::app::favorites_state::FavoritesDrag::Item {
+                                    group_id: drag_group,
+                                    path: drag_path,
+                                } if *drag_group == group.id => {
+                                    if row_hit(ui, item_row.rect) {
+                                        let after =
+                                            drop_insertion(ui, item_row.rect, ITEM_INDENT, false);
+                                        drop_action = Some(ListAction::DropItem {
+                                            group_id: group.id,
+                                            path: drag_path.clone(),
+                                            insertion: item_index + usize::from(after),
+                                        });
+                                    }
+                                }
+                                // Cross-group drop: insert at the hovered
+                                // position of this group; refused when the
+                                // group already contains the folder.
+                                crate::app::favorites_state::FavoritesDrag::Item {
+                                    group_id: drag_group,
+                                    path: drag_path,
+                                } => {
+                                    if row_hit(ui, item_row.rect) {
+                                        let refused = group.contains_path(drag_path);
+                                        drop_invalid |= refused;
+                                        let after = drop_insertion(
+                                            ui,
+                                            item_row.rect,
+                                            ITEM_INDENT,
+                                            refused,
+                                        );
+                                        drop_action = Some(ListAction::MoveItemBetweenGroups {
+                                            from_group_id: *drag_group,
+                                            path: drag_path.clone(),
+                                            to_group_id: group.id,
+                                            insertion: Some(item_index + usize::from(after)),
+                                        });
+                                    }
+                                }
+                                // A 最近访问 row dropped onto this group's
+                                // folder rows inserts at the hovered position;
+                                // refused when the group already has the folder.
+                                crate::app::favorites_state::FavoritesDrag::Recent(
+                                    drag_path,
+                                ) => {
+                                    if row_hit(ui, item_row.rect) {
+                                        let refused = group.contains_path(drag_path);
+                                        drop_invalid |= refused;
+                                        let after = drop_insertion(
+                                            ui,
+                                            item_row.rect,
+                                            ITEM_INDENT,
+                                            refused,
+                                        );
+                                        drop_action = Some(ListAction::RecentToGroup {
+                                            path: drag_path.clone(),
+                                            to_group_id: group.id,
+                                            insertion: Some(item_index + usize::from(after)),
+                                        });
+                                    }
+                                }
+                                _ => {}
+                            }
+                            }
+                            if item_row.drag_started() {
+                                action = Some(ListAction::SetDrag(Some(
+                                    crate::app::favorites_state::FavoritesDrag::Item {
+                                        group_id: group.id,
+                                        path: item.path.clone(),
+                                    },
+                                )));
+                            }
                             let tooltip = item.path.clone();
                             let item_row = item_row.on_hover_text(tooltip);
                             if item_row.clicked() {
@@ -275,6 +513,7 @@ pub(super) fn render(
                 recent.len(),
                 false,
                 true,
+                false,
             );
             if recent_row.clicked() {
                 action = Some(ListAction::ToggleRecent);
@@ -304,7 +543,31 @@ pub(super) fn render(
                         0,
                         true,
                         false,
+                        true,
                     );
+                    // 最近访问 rows can be dragged into a 快速打开 group.
+                    if drag.is_some() && ui.rect_contains_pointer(recent_item.rect) {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+                    }
+                    if let Some(crate::app::favorites_state::FavoritesDrag::Recent(
+                        drag_path,
+                    )) = &drag
+                    {
+                        if drag_path.eq_ignore_ascii_case(path)
+                            && ui.is_rect_visible(recent_item.rect)
+                        {
+                            ui.painter().rect_filled(
+                                recent_item.rect,
+                                4.0,
+                                egui::Color32::from_rgba_unmultiplied(0, 120, 215, 60),
+                            );
+                        }
+                    }
+                    if recent_item.drag_started() {
+                        action = Some(ListAction::SetDrag(Some(
+                            crate::app::favorites_state::FavoritesDrag::Recent(path.clone()),
+                        )));
+                    }
                     let recent_item = recent_item.on_hover_text(path.as_str());
                     if recent_item.clicked() {
                         action = Some(ListAction::OpenFolder {
@@ -323,6 +586,47 @@ pub(super) fn render(
     // Write the editor text back before a commit reads it.
     if let Some(state) = app.favorites_rename.as_mut() {
         state.text = rename_text;
+    }
+
+    // Drop-at-release model: while the button is held the insertion line only
+    // previews the landing spot; the reorder is applied at the moment the
+    // button is released over a target row. Releasing anywhere else cancels.
+    let released = ui.input(|input| input.pointer.primary_released());
+    let primary_down = ui.input(|input| input.pointer.primary_down());
+    match drop_action {
+        Some(ListAction::DropGroup { id, insertion }) => {
+            if released {
+                app.favorites_drop_group(id, insertion);
+            }
+        }
+        Some(ListAction::DropItem { group_id, path, insertion }) => {
+            if released {
+                app.favorites_drop_item(group_id, &path, insertion);
+            }
+        }
+        Some(ListAction::MoveItemBetweenGroups {
+            from_group_id,
+            path,
+            to_group_id,
+            insertion,
+        }) => {
+            if released && !drop_invalid {
+                app.favorites_move_item(from_group_id, &path, to_group_id, insertion);
+            }
+        }
+        Some(ListAction::RecentToGroup {
+            path,
+            to_group_id,
+            insertion,
+        }) => {
+            if released && !drop_invalid {
+                app.favorites_recent_to_group(&path, to_group_id, insertion);
+            }
+        }
+        _ => {}
+    }
+    if drag.is_some() && (released || !primary_down) {
+        app.favorites_set_drag(None);
     }
 
     let mut open_group = None;
@@ -380,6 +684,25 @@ pub(super) fn render(
         Some(ListAction::ToggleShowNames) => app.favorites_toggle_show_names(),
         Some(ListAction::ToggleRecent) => app.favorites_toggle_recent(),
         Some(ListAction::RemoveRecent(path)) => app.remove_recent_folder(&path),
+        Some(ListAction::SetDrag(drag)) => app.favorites_set_drag(drag),
+        Some(ListAction::DropGroup { id, insertion }) => {
+            // Handled above before the action match; kept for exhaustiveness.
+            app.favorites_drop_group(id, insertion)
+        }
+        Some(ListAction::DropItem { group_id, path, insertion }) => {
+            app.favorites_drop_item(group_id, &path, insertion)
+        }
+        Some(ListAction::MoveItemBetweenGroups {
+            from_group_id,
+            path,
+            to_group_id,
+            insertion,
+        }) => app.favorites_move_item(from_group_id, &path, to_group_id, insertion),
+        Some(ListAction::RecentToGroup {
+            path,
+            to_group_id,
+            insertion,
+        }) => app.favorites_recent_to_group(&path, to_group_id, insertion),
         None => {}
     }
 
@@ -391,6 +714,73 @@ pub(super) fn render(
 
 fn target_is_group(target: &FavoritesRenameTarget, group_id: i64) -> bool {
     matches!(target, FavoritesRenameTarget::Group(id) if *id == group_id)
+}
+
+/// Paint the insertion line at the top or bottom edge of the row under the
+/// dragged pointer and return whether the drop inserts *after* that row.
+/// Row hover including the 2 px gap below, so a moving pointer never
+/// slips between rows during a drag.
+fn row_hit(ui: &egui::Ui, rect: egui::Rect) -> bool {
+    ui.input(|input| {
+        input.pointer.latest_pos().is_some_and(|pointer| {
+            pointer.x >= rect.left()
+                && pointer.x <= rect.right()
+                && pointer.y >= rect.top() - 1.0
+                && pointer.y <= rect.bottom() + 2.0
+        })
+    })
+}
+
+/// Paint the insertion line at the top or bottom edge of the row under the
+/// dragged pointer and return whether the drop inserts *after* that row.
+/// `refused` renders the line red with a red × (duplicate target).
+fn drop_insertion(ui: &egui::Ui, rect: egui::Rect, indent: f32, refused: bool) -> bool {
+    let after = ui
+        .input(|input| input.pointer.latest_pos())
+        .is_some_and(|pointer| pointer.y > rect.center().y);
+    let y = if after { rect.bottom() } else { rect.top() };
+    let color = if refused {
+        CLOSE_HOVER_TINT
+    } else {
+        // Same accent as the old sidebar's pinned-folder reorder line.
+        egui::Color32::from_rgb(0, 120, 215)
+    };
+    let from = egui::pos2(rect.left() + indent, y);
+    let to = egui::pos2(rect.right(), y);
+    if refused {
+        // Red dashed line: this group already has the folder.
+        for shape in egui::epaint::Shape::dashed_line(
+            &[from, to],
+            egui::Stroke::new(2.0, color),
+            4.0,
+            3.0,
+        ) {
+            ui.painter().add(shape);
+        }
+        ui.ctx().set_cursor_icon(egui::CursorIcon::NotAllowed);
+    } else {
+        ui.painter()
+            .line_segment([from, to], egui::Stroke::new(2.0, color));
+    }
+    after
+}
+
+/// Red dashed rectangle outline for a refused drop on a group header.
+fn dashed_header_refused(ui: &egui::Ui, rect: egui::Rect) {
+    let stroke = egui::Stroke::new(1.5, CLOSE_HOVER_TINT);
+    let corners = [
+        rect.left_top(),
+        rect.right_top(),
+        rect.right_bottom(),
+        rect.left_bottom(),
+        rect.left_top(),
+    ];
+    for edge in corners.windows(2) {
+        for shape in egui::epaint::Shape::dashed_line(edge, stroke, 4.0, 3.0) {
+            ui.painter().add(shape);
+        }
+    }
+    ui.ctx().set_cursor_icon(egui::CursorIcon::NotAllowed);
 }
 
 fn target_is_item(target: &FavoritesRenameTarget, group_id: i64, path: &str) -> bool {
@@ -434,6 +824,8 @@ fn add_menu_items(ui: &mut egui::Ui, target: Option<i64>, action: &mut Option<Li
 }
 
 /// One flat row. Returns the row response and, when `removable`, the hover ×.
+/// Draggable rows (favorite groups and their folders) also sense drags so they
+/// can be reordered; egui keeps plain clicks working through the drag threshold.
 fn row(
     ui: &mut egui::Ui,
     id_salt: egui::Id,
@@ -443,10 +835,15 @@ fn row(
     count: usize,
     removable: bool,
     folder_icon: bool,
+    draggable: bool,
 ) -> (egui::Response, Option<egui::Response>) {
     let width = (ui.available_width() - SCROLLBAR_GAP).max(0.0);
-    let (rect, response) =
-        ui.allocate_exact_size(egui::vec2(width, ROW_HEIGHT), egui::Sense::click());
+    let sense = if draggable {
+        egui::Sense::click_and_drag()
+    } else {
+        egui::Sense::click()
+    };
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(width, ROW_HEIGHT), sense);
     let mut close_response = None;
     // Pointer-in-rect instead of `response.hovered()`: the × hit area sits on top
     // of the row and would otherwise steal hover and make the glyph flicker.
@@ -592,4 +989,62 @@ fn inline_editor(
             .data_mut(|data| data.remove::<bool>(focus_key));
     }
     (commit, cancel)
+}
+
+#[cfg(test)]
+mod drag_probe {
+    //! Synthetic pointer probe: a `Sense::click_and_drag()` row inside a
+    //! `ScrollArea::both()` must report `drag_started()` frame by frame, the
+    //! same way the favorites rows sense drags.
+    use eframe::egui;
+
+    fn frame(ctx: &egui::Context, events: Vec<egui::Event>) -> (bool, bool) {
+        let mut observed = (false, false);
+        ctx.run_ui(
+            egui::RawInput { events, ..Default::default() },
+            |ui| {
+                egui::ScrollArea::both()
+                    .id_salt("probe_scroll")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        let (_, response) = ui.allocate_exact_size(
+                            egui::vec2(150.0, 24.0),
+                            egui::Sense::click_and_drag(),
+                        );
+                        observed = (response.drag_started(), response.dragged());
+                    });
+            },
+        );
+        observed
+    }
+
+    #[test]
+    fn click_and_drag_row_inside_scroll_area_reports_drag() {
+        let ctx = egui::Context::default();
+        let mut drag_started = false;
+        let mut dragged = false;
+
+        let _ = frame(&ctx, Vec::new()); // layout
+        let (started, dragged_frame) = frame(
+            &ctx,
+            vec![egui::Event::PointerButton {
+                pos: egui::pos2(60.0, 12.0),
+                button: egui::PointerButton::Primary,
+                pressed: true,
+                modifiers: egui::Modifiers::NONE,
+            }],
+        );
+        drag_started |= started;
+        dragged |= dragged_frame;
+        for step in 1..=4 {
+            let (started, dragged_frame) = frame(
+                &ctx,
+                vec![egui::Event::PointerMoved(egui::pos2(60.0, 12.0 + 6.0 * step as f32))],
+            );
+            drag_started |= started;
+            dragged |= dragged_frame;
+        }
+
+        assert!(drag_started || dragged, "row must report the drag");
+    }
 }

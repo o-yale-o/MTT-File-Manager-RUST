@@ -540,6 +540,7 @@ impl ImageViewerApp {
             favorites_recent_expanded,
             favorites_rename: None,
             pending_favorite_open: None,
+            favorites_drag: None,
             recent_folders,
             show_preview_panel: initial_show_preview_panel,
             show_recycle_bin,  // Loaded from SQLite

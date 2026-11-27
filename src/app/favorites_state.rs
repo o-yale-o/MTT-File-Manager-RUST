@@ -33,6 +33,18 @@ pub struct PendingFavoriteOpen {
     pub receiver: std::sync::mpsc::Receiver<bool>,
 }
 
+/// One row being drag-reordered on the 【列表】 page. Dragging spans frames, so
+/// the payload lives on the app state until the pointer is released.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FavoritesDrag {
+    /// A whole group, by row id.
+    Group(i64),
+    /// One folder inside a group.
+    Item { group_id: i64, path: String },
+    /// One 最近访问 row, draggable into a 快速打开 group.
+    Recent(String),
+}
+
 impl FavoritesRename {
     pub fn new(target: FavoritesRenameTarget, text: String) -> Self {
         Self { target, text }
