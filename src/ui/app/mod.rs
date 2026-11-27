@@ -9,6 +9,7 @@ mod navigation_input;
 pub mod notifications;
 pub mod panels;
 mod quick_search;
+pub mod stall_watchdog;
 mod view_mode_input;
 
 pub use input::*;

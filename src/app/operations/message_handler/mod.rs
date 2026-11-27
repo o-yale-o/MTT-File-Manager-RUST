@@ -4,6 +4,7 @@
 //! (filesystem events, thumbnails, folder sizes, etc.) and updates the UI state.
 
 use crate::app::state::ImageViewerApp;
+use crate::ui::app::stall_watchdog::{self, Stage};
 use eframe::egui;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -94,6 +95,7 @@ impl ImageViewerApp {
     }
 
     fn process_incoming_messages_impl(&mut self, ctx: &egui::Context, upload_textures: bool) {
+        stall_watchdog::enter(Stage::Messages);
         let mut diagnostic_stage =
             crate::infrastructure::diagnostic_logger::navigation_trace::Stage::new(
                 "messages_setup",
@@ -126,6 +128,7 @@ impl ImageViewerApp {
             self.process_streaming_and_thumbnail_events(ctx, false);
             self.apply_ready_tag_view_hides();
             self.poll_folder_timestamps(ctx);
+            stall_watchdog::enter(Stage::MessagesDone);
             return;
         }
 
@@ -220,10 +223,12 @@ impl ImageViewerApp {
         self.process_organizer_events(&current_path_norm);
 
         // BLOCKING: Process all available file operation results in batch
+        stall_watchdog::enter(Stage::FileOperationResults);
         self.process_file_operation_results(&current_path_norm, ctx);
         self.organizer_state
             .reload_history_if_dirty(&self.app_state_db);
         self.flush_organizer_notification_summary();
+        stall_watchdog::enter(Stage::FileOperationResultsDone);
 
         self.process_tag_assignment_gc_results();
         self.process_auto_tag_events();
@@ -234,14 +239,18 @@ impl ImageViewerApp {
 
         // 2. CHECK DE AUTO-REFRESH (WATCHER)
         diagnostic_stage.lap("messages_watcher");
+        stall_watchdog::enter(Stage::WatcherEvents);
         let watcher_perf = self.process_watcher_events_and_auto_reload(&current_path_norm);
+        stall_watchdog::enter(Stage::WatcherEventsDone);
         let _t_watcher_start = watcher_perf.watcher_start;
         let _t_drive_events_done = watcher_perf.drive_events_done;
         let _t_auto_reload_done = watcher_perf.auto_reload_done;
 
         diagnostic_stage.lap("messages_streaming");
+        stall_watchdog::enter(Stage::Streaming);
         let _t_streaming_done = self.process_streaming_and_thumbnail_events(ctx, true);
         self.apply_ready_tag_view_hides();
+        stall_watchdog::enter(Stage::StreamingDone);
 
         diagnostic_stage.lap("messages_cloud_and_search");
         self.process_google_drive_statuses(ctx);
@@ -252,8 +261,7 @@ impl ImageViewerApp {
         self.poll_folder_timestamps(ctx);
 
         // PERF: Log detailed breakdown when process_incoming_messages is slow
-        let _t_msg_total = _t_msg_start.elapsed().as_millis();
-        if _t_msg_total > 50 {
+        let _t_msg_total = _t_msg_start.elapsed().as_millis();        if _t_msg_total > 50 {
             log::warn!("[PERF-MSG] TOTAL={}ms | pre_watcher={}ms | watcher_events={}ms | legacy+autoreload={}ms | streaming={}ms | icons+thumbs={}ms",
                 _t_msg_total,
                 _t_watcher_start.duration_since(_t_msg_start).as_millis(),
@@ -263,6 +271,7 @@ impl ImageViewerApp {
                 _t_msg_start.elapsed().as_millis().saturating_sub(_t_streaming_done.duration_since(_t_msg_start).as_millis()),
             );
         }
+        stall_watchdog::enter(Stage::MessagesDone);
     }
 
     fn process_tag_assignment_gc_results(&mut self) {

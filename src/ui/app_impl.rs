@@ -4,6 +4,7 @@ use crate::infrastructure::windows::window_subclass::{
     is_in_size_move, layout_phase, WindowLayoutPhase,
 };
 use crate::ui::app;
+use crate::ui::app::stall_watchdog::{self, Stage};
 use eframe::egui;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -127,6 +128,7 @@ impl ImageViewerApp {
     }
 
     fn run_background_updates(&mut self, ctx: &egui::Context, upload_textures: bool) {
+        stall_watchdog::enter(Stage::BackgroundUpdates);
         let mut diagnostic_stage =
             crate::infrastructure::diagnostic_logger::navigation_trace::Stage::new(
                 "background_setup",
@@ -154,6 +156,7 @@ impl ImageViewerApp {
             self.request_next_background_repaint(ctx);
             return;
         }
+        stall_watchdog::enter(Stage::DriveRequests);
         self.retry_completed_clipboard_cleanup();
         let t1 = std::time::Instant::now();
         diagnostic_stage.lap("background_drive_requests");
@@ -166,6 +169,7 @@ impl ImageViewerApp {
 
         let t2 = std::time::Instant::now();
         diagnostic_stage.lap("background_poll_results");
+        stall_watchdog::enter(Stage::PollResults);
         self.poll_drive_scan();
         self.poll_drive_info();
         self.poll_drive_health();
@@ -184,6 +188,7 @@ impl ImageViewerApp {
 
         let t3 = std::time::Instant::now();
         diagnostic_stage.lap("background_preferences");
+        stall_watchdog::enter(Stage::PreferencesAndMemory);
         self.flush_preferences_if_needed();
         let t4 = std::time::Instant::now();
         diagnostic_stage.lap("background_memory_maintenance");
@@ -191,6 +196,7 @@ impl ImageViewerApp {
         self.maybe_log_memory_snapshot("frame");
         self.reap_video_player_process();
         crate::viewer_processes::reap_exited();
+        stall_watchdog::enter(Stage::BackgroundUpdatesDone);
         let t5 = std::time::Instant::now();
         diagnostic_stage.lap("background_repaint");
 
@@ -231,6 +237,7 @@ impl eframe::App for ImageViewerApp {
 
     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let _diagnostic_logic = crate::infrastructure::diagnostic_logger::SlowScope::new("logic");
+        stall_watchdog::enter(Stage::LogicStart);
         self.poll_default_file_manager_action();
         // Real inter-frame interval tracking (captures hitches that stable_dt
         // smooths away, e.g. stalls in the previous frame's paint/swap phase).
@@ -258,6 +265,7 @@ impl eframe::App for ImageViewerApp {
             self.run_deferred_post_load_visual_work();
         }
         crate::app::tab_transfer::restore_ready_scroll(self);
+        stall_watchdog::enter(Stage::LogicEnd);
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
@@ -266,11 +274,14 @@ impl eframe::App for ImageViewerApp {
             self.layout.saved_is_minimized,
             layout_phase() == WindowLayoutPhase::Minimized,
         ) {
+            stall_watchdog::enter(Stage::MinimizedSkip);
             self.last_ui_exit = Some(std::time::Instant::now());
             return;
         }
         let ctx_owned = ui.ctx().clone();
         let ctx = &ctx_owned;
+        stall_watchdog::enter(Stage::UiStart);
+        stall_watchdog::tick_frame();
         // Real gap between painted frames (catches a window that stops painting
         // while the event loop keeps ticking).
         self.track_paint_interval();
@@ -304,6 +315,7 @@ impl eframe::App for ImageViewerApp {
         diagnostic_frame.checkpoint("frame_input_setup");
         self.run_background_updates(ctx, true);
         diagnostic_frame.checkpoint("frame_background_updates");
+        stall_watchdog::enter(Stage::AsyncResults);
 
         // Apply asynchronously loaded fonts as soon as the worker finishes.
         if let Some(rx) = &self.font_loader_rx {
@@ -596,6 +608,7 @@ impl eframe::App for ImageViewerApp {
 
         diagnostic_frame.checkpoint("frame_async_results");
         // 5. Input: Keyboard shortcuts (resize borders handled by native subclass)
+        stall_watchdog::enter(Stage::Input);
         if !is_in_size_move {
             app::input::handle_input(self, ctx);
         }
@@ -614,6 +627,7 @@ impl eframe::App for ImageViewerApp {
         };
 
         // 6. Layout: Status Bar (Bottom) - lightweight, always render
+        stall_watchdog::enter(Stage::Toolbars);
         app::layers::render_status_bar_layer(self, ui);
 
         // 7. Layout: Tab Bar (Top 1) - lightweight, always render
@@ -643,14 +657,17 @@ impl eframe::App for ImageViewerApp {
         // 9. Layout: Main Panels (Sidebar, Preview, Central)
         // Keep full rendering even during move/resize so content/video stays visible and synchronized.
         let t_panels = std::time::Instant::now();
+        stall_watchdog::enter(Stage::Panels);
         app::panels::render_panels(self, ui, frame);
         diagnostic_frame.checkpoint("frame_panels");
+        stall_watchdog::enter(Stage::PanelsDone);
         let panels_ms = t_panels.elapsed().as_secs_f32() * 1000.0;
         if panels_ms > 50.0 {
             log::warn!("[PERF] Slow render_panels: {:.0}ms", panels_ms);
         }
 
         // 10. Operations: Context Menu (Rendering & Actions)
+        stall_watchdog::enter(Stage::ContextMenu);
         if !self.global_search.active && !palette_blocks_frame {
             app::menu_handler::handle_context_menu(self, ctx);
         }
@@ -663,6 +680,7 @@ impl eframe::App for ImageViewerApp {
         // app::input::handle_resize_borders(self, ctx);
 
         // 12. Settings window
+        stall_watchdog::enter(Stage::SettingsWindow);
         if self.navigation_state.show_settings_window {
             let output = crate::ui::components::settings_window::render_settings_window(
                 ctx,
@@ -731,6 +749,7 @@ impl eframe::App for ImageViewerApp {
         crate::ui::fonts::selection::finish_preview_frame(ctx);
         crate::ui::fonts::selection::flush_font_updates(ctx);
 
+        stall_watchdog::enter(Stage::Overlays);
         crate::ui::components::folder_export::render(self, ctx);
 
         // 13. Batch Rename Modal
@@ -867,6 +886,7 @@ impl eframe::App for ImageViewerApp {
         }
         crate::ui::performance_diagnostics::record_context(self, ctx);
         diagnostic_frame.finish(self.is_loading_folder, self.items.len(), self.generation);
+        stall_watchdog::enter(Stage::UiEnd);
         self.last_ui_exit = Some(std::time::Instant::now());
     }
 

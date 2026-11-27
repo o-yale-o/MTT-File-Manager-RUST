@@ -414,6 +414,14 @@ fn main() -> eframe::Result<()> {
     mtt_file_manager::infrastructure::diagnostic_logger::init(console_logger, diagnostic_filter)
         .expect("global logger should initialize exactly once");
 
+    // UI-thread stall watchdog: records the last reached frame phase when the
+    // UI thread stops advancing, so a permanent freeze leaves evidence in
+    // logs/stall.log even though the blocked thread cannot log anything.
+    mtt_file_manager::ui::app::stall_watchdog::start();
+    mtt_file_manager::ui::app::stall_watchdog::enter(
+        mtt_file_manager::ui::app::stall_watchdog::Stage::Startup,
+    );
+
     let early_prefs_start = Instant::now();
     let early_prefs = read_early_preferences(&[
         mtt_file_manager::infrastructure::diagnostic_logger::DIAGNOSTIC_MODE_KEY,
