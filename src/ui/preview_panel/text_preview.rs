@@ -325,11 +325,19 @@ fn build_highlight_job(
 
     let syntax_set = SYNTAX_SET.get().expect("syntax set initialized");
     // Extensions whose syntax lives under a different name (MadEdit does the
-    // same: TOML highlighting is provided by the YAML grammar).
+    // same: TOML highlighting is provided by the YAML grammar). Makefile
+    // variants resolve to the default "Makefile" grammar by name.
     const SYNTAX_ALIASES: &[(&str, &str)] = &[
         ("toml", "YAML"),
         ("ztrtoml", "YAML"),
         ("tml", "YAML"),
+        ("makefile", "Makefile"),
+        ("gnumakefile", "Makefile"),
+        ("omakefile", "Makefile"),
+        ("mkfile", "Makefile"),
+        ("mk", "Makefile"),
+        ("mak", "Makefile"),
+        ("mf", "Makefile"),
     ];
     let syntax = syntax_set
         .find_syntax_by_extension(ext)
@@ -663,6 +671,29 @@ mod gitignore_probe {
     fn probe_gitignore_syntax() {
         let set = super::load_syntax_set();
         println!("by ext 'gitignore': {:?}", set.find_syntax_by_extension("gitignore").map(|s| s.name.clone()));
-        println!("by name 'Git Ignore': {:?}", set.find_syntax_by_name("Git Ignore").map(|s| (s.name.clone(), s.file_extensions.clone())));
+        println!("by name 'Git Ignore': {:?}", set.find_syntax_by_name("Git Ignore").map(|s| s.name.clone()));
+    }
+}
+
+#[cfg(test)]
+mod makefile_tests {
+    #[test]
+    fn makefile_syntax_resolves_for_extensionless_names_and_make_extensions() {
+        let set = super::load_syntax_set();
+        assert!(set.find_syntax_by_name("Makefile").is_some(), "syntect defaults must ship the Makefile grammar");
+        for ext in ["makefile", "gnumakefile", "mk", "mak"] {
+            let syntax = set
+                .find_syntax_by_extension(ext)
+                .map(|s| s.name.clone())
+                .unwrap_or_else(|| format!("<none:{ext}>"));
+            assert_eq!(syntax, "Makefile", "ext {ext}");
+        }
+        // Full extensionless highlight job builds without error.
+        let job = super::build_highlight_job(
+            "CC = gcc\n\nall: app\n\n# comment\napp: main.o\n\t$(CC) -o $@ $<\n",
+            "makefile",
+            true,
+        );
+        assert!(job.is_some(), "makefile highlight job must build");
     }
 }

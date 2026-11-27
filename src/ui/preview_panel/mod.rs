@@ -275,13 +275,15 @@ pub fn render_preview_panel(
 }
 
 /// Lowercase extension for preview routing. Falls back to the whole file name
-/// (minus the leading dot) for dotfiles like `.gitignore` / `.zshrc`.
+/// (minus the leading dot) for dotfiles like `.gitignore` / `.zshrc`, and to
+/// the whole lowercase name for extensionless files like `Makefile` /
+/// `GNUmakefile` (MadEdit matches those by their full name too).
 pub(crate) fn preview_ext(path: &std::path::Path) -> String {
     if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         return ext.to_ascii_lowercase();
     }
-    // Dotfiles: Rust's `extension()` returns None for names like `.gitignore`.
     if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+        // Dotfiles: Rust's `extension()` returns None for names like `.gitignore`.
         if let Some(rest) = name.strip_prefix('.') {
             if !rest.is_empty() {
                 return match rest.to_ascii_lowercase().as_str() {
@@ -289,6 +291,11 @@ pub(crate) fn preview_ext(path: &std::path::Path) -> String {
                     other => other.to_string(),
                 };
             }
+        }
+        // Extensionless well-known files: the whole name acts as the key
+        // ("makefile", "gnumakefile", "license", "readme", …).
+        if !name.is_empty() {
+            return name.to_ascii_lowercase();
         }
     }
     String::new()

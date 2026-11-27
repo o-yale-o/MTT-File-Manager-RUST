@@ -7,19 +7,12 @@ use rustc_hash::FxHashMap;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-fn content_height(
-    pinned_count: usize,
-    tag_count: usize,
-    quick_access_visible: bool,
-    collapsed: bool,
-) -> f32 {
+fn content_height(pinned_count: usize, tag_count: usize, collapsed: bool) -> f32 {
     with_sidebar(pinned_count, tag_count, collapsed, |ctx, sidebar| {
         let mut height = 0.0;
         let _ = ctx.run_ui(RawInput::default(), |ui| {
             ui.set_max_size(vec2(240.0, 220.0));
-            height = render_content(ui, sidebar, quick_access_visible)
-                .content_size
-                .y;
+            height = render_content(ui, sidebar).content_size.y;
         });
         height
     })
@@ -143,28 +136,17 @@ fn with_sidebar_tree<R>(
 }
 
 #[test]
-fn adding_quick_access_items_and_tags_grows_the_same_scrollable_content() {
-    let initial = content_height(2, 2, true, false);
-    let more_pinned = content_height(22, 2, true, false);
-    let more_tags = content_height(2, 22, true, false);
-    assert!(more_pinned > initial + 500.0);
+fn more_tags_grow_the_same_scrollable_content() {
+    let initial = content_height(2, 2, false);
+    let more_tags = content_height(2, 22, false);
     assert!(more_tags > initial + 500.0);
-}
-
-#[test]
-fn horizontal_quick_access_does_not_reserve_space_in_the_sidebar() {
-    assert_eq!(
-        content_height(2, 2, false, false),
-        content_height(22, 2, false, false)
-    );
-    assert!(content_height(22, 2, true, false) > content_height(22, 2, false, false) + 500.0);
 }
 
 #[test]
 fn collapsed_sections_fit_their_headers_regardless_of_item_count() {
     assert_eq!(
-        content_height(2, 2, true, true),
-        content_height(22, 22, true, true)
+        content_height(2, 2, true),
+        content_height(22, 22, true)
     );
 }
 
@@ -173,14 +155,6 @@ fn dropping_a_folder_on_tags_does_not_pin_it_to_quick_access() {
     assert!(!matches!(
         drop_folder_on("Tag 0"),
         Some(SidebarAction::PinFolder(_))
-    ));
-}
-
-#[test]
-fn dropping_a_folder_on_quick_access_still_pins_it() {
-    assert!(matches!(
-        drop_folder_on(&rust_i18n::t!("sidebar.quick_access")),
-        Some(SidebarAction::PinFolder(path)) if path == r"C:\Folders\New Folder"
     ));
 }
 
@@ -194,22 +168,11 @@ fn drop_folder_on(label: &str) -> Option<SidebarAction> {
 }
 
 #[test]
-fn releasing_a_pinned_folder_over_tags_does_not_reorder_quick_access() {
-    let action = with_sidebar(2, 1, false, |ctx, sidebar| {
-        release_on_label(ctx, sidebar, "Tag 0", true)
-    });
-    assert!(!matches!(
-        action,
-        Some(SidebarAction::ReorderPinnedFolder { .. })
-    ));
-}
-
-#[test]
 fn wide_folder_trees_do_not_push_section_toggles_outside_the_viewport() {
     with_sidebar_tree(0, 1, false, true, |ctx, sidebar| {
         let output = ctx.run_ui(RawInput::default(), |ui| {
             ui.set_max_size(vec2(240.0, 500.0));
-            let area = render_content(ui, sidebar, true);
+            let area = render_content(ui, sidebar);
             assert!(area.content_size.x > area.inner_rect.width());
         });
         let toggles: Vec<_> = output
@@ -247,7 +210,7 @@ fn release_on_label(
 ) -> Option<SidebarAction> {
     let output = ctx.run_ui(RawInput::default(), |ui| {
         ui.set_max_size(vec2(240.0, 500.0));
-        render_content(ui, sidebar, true);
+        render_content(ui, sidebar);
     });
     let pos = output
         .shapes
@@ -276,7 +239,7 @@ fn release_on_label(
             },
             |ui| {
                 ui.set_max_size(vec2(240.0, 500.0));
-                action = render_content(ui, sidebar, true).inner;
+                action = render_content(ui, sidebar).inner;
             },
         );
         if pressed && reorder {
