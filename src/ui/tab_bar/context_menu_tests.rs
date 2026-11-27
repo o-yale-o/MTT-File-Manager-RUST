@@ -53,7 +53,6 @@ fn clicking_empty_title_strip_dismisses_tab_menu_without_opening_a_tab_or_draggi
                     quick_access_action: None,
                     tree_action: None,
                     can_reopen: Some(false),
-                    can_save_group: false,
                     auto_expand_tree: false,
                 },
             ));
@@ -117,7 +116,6 @@ fn reopen_menu_entry_is_disabled_without_history_and_hidden_for_pane_tabs() {
                     quick_access_action: None,
                     tree_action: None,
                     can_reopen: availability,
-                    can_save_group: false,
                     auto_expand_tree: false,
                 },
             ));
@@ -186,7 +184,6 @@ fn auto_expand_tree_checkbox_toggles_the_preference_without_selecting_the_tab() 
                     quick_access_action: None,
                     tree_action: Some(TabAction::ExpandFolderTree),
                     can_reopen: Some(true),
-                    can_save_group: false,
                     auto_expand_tree: checked,
                 },
             ) {
@@ -267,7 +264,6 @@ fn click_command_without_selecting_tab(
                 )
                 .then_some(expected),
                 can_reopen: Some(true),
-                can_save_group: false,
                 auto_expand_tree: false,
             },
         ) {

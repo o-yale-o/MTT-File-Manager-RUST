@@ -1,4 +1,4 @@
-use super::{context, quick_access, sidebar_layout};
+use super::{context, sidebar_layout};
 use crate::app::ImageViewerApp;
 use crate::ui::sidebar::{
     render_sidebar_drives, render_sidebar_this_pc, render_tags_section, SidebarAction,
@@ -22,7 +22,6 @@ pub(super) fn render(
     });
 
     let this_pc_action = render_sidebar_this_pc(ui, &mut context(app, can_drop));
-    let quick_access = quick_access::render(app, ui, can_drop);
     let drives_avail = sidebar_layout::drives_available_height(
         ui.available_height(),
         tags_visible,
@@ -34,12 +33,6 @@ pub(super) fn render(
         .sidebar_drives_height
         .unwrap_or(drives_avail)
         .clamp(drives_min_h, drives_avail);
-    let pointer_over_quick_access = ui.input(|i| {
-        i.pointer
-            .hover_pos()
-            .is_some_and(|p| quick_access.interaction_rect.contains(p))
-    });
-
     let dt = ui.input(|i| i.predicted_dt).min(0.05);
     let t = (dt * 9.0).min(1.0);
     let diff = app.sidebar_tree.scroll_target_y - app.sidebar_tree.scroll_visual_y;
@@ -114,7 +107,7 @@ pub(super) fn render(
     });
     let mut tags_action = None;
     let mut tags_rect = egui::Rect::NOTHING;
-    let mut height_changed = quick_access.height_changed;
+    let mut height_changed = false;
     if let Some(tags) = tags_output {
         tags_rect = tags.interaction_rect;
         tags_action = tags.inner;
@@ -135,7 +128,6 @@ pub(super) fn render(
         ui.input(|i| i.pointer.hover_pos().is_some_and(|p| tags_rect.contains(p)));
     let wheel_in_drives = scroll_delta != 0.0
         && pointer_in_sidebar
-        && !pointer_over_quick_access
         && !pointer_over_tags;
     if wheel_in_drives {
         app.sidebar_tree.scroll_target_y =
@@ -154,7 +146,6 @@ pub(super) fn render(
         app.sidebar_tree.scroll_visual_y = actual_offset;
     }
     this_pc_action
-        .or(quick_access.action)
         .or(output.inner)
         .or(tags_action)
 }

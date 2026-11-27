@@ -18,6 +18,11 @@ pub(super) struct StartupPreferences {
     pub(super) thumbnail_size: f32,
     pub(super) view_mode: ViewMode,
     pub(super) show_left_sidebar: bool,
+    pub(super) sidebar_dock_tab: crate::app::sidebar_dock::SidebarDockTab,
+    pub(super) favorite_root_expanded: bool,
+    pub(super) favorites_show_names_only: bool,
+    pub(super) favorites_recent_expanded: bool,
+    pub(super) recent_folders: Vec<String>,
     pub(super) show_preview_panel: bool,
     pub(super) upload_budget_ms: f32,
     pub(super) saved_window_width: f32,
@@ -128,6 +133,27 @@ impl StartupPreferences {
             .get("show_left_sidebar")
             .map(|s| s != "false")
             .unwrap_or(true);
+
+        let sidebar_dock_tab = crate::app::sidebar_dock::SidebarDockTab::from_preference(
+            prefs.get("sidebar_dock_tab").map(String::as_str),
+        );
+
+        let favorite_root_expanded = prefs
+            .get("favorite_root_expanded")
+            .map(|value| value != "false")
+            .unwrap_or(true);
+        let favorites_show_names_only = prefs
+            .get("favorites_show_names_only")
+            .map(|value| value == "true")
+            .unwrap_or(false);
+        let favorites_recent_expanded = prefs
+            .get("favorites_recent_expanded")
+            .map(|value| value != "false")
+            .unwrap_or(true);
+        let recent_folders: Vec<String> = prefs
+            .get("recent_folders")
+            .and_then(|raw| serde_json::from_str::<Vec<String>>(raw).ok())
+            .unwrap_or_default();
 
         let show_preview_panel = prefs
             .get("show_preview_panel")
@@ -393,6 +419,11 @@ impl StartupPreferences {
             thumbnail_size,
             view_mode,
             show_left_sidebar,
+            sidebar_dock_tab,
+            favorite_root_expanded,
+            favorites_show_names_only,
+            favorites_recent_expanded,
+            recent_folders,
             show_preview_panel,
             upload_budget_ms,
             saved_window_width,

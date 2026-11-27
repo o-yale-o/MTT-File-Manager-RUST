@@ -80,7 +80,6 @@ impl ImageViewerApp {
             }
             TabAction::Close => self.close_main_tab(index),
             TabAction::ReopenClosed => self.reopen_closed_main_tab(),
-            TabAction::SaveTabsAsGroup => self.begin_save_tabs_as_group(),
             TabAction::Duplicate => {
                 if !self.tab_manager.can_add_tab() {
                     self.notifications.warning(
@@ -133,7 +132,6 @@ impl ImageViewerApp {
         match action {
             // Closed workspace tabs belong to the main strip, not pane tabs.
             TabAction::ReopenClosed => (),
-            TabAction::SaveTabsAsGroup => (),
             TabAction::ExpandFolderTree | TabAction::CollapseFolderTree => {
                 let auto_expand = action == TabAction::ExpandFolderTree;
                 self.auto_expand_folder_tree = auto_expand;

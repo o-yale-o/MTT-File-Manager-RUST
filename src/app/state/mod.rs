@@ -415,6 +415,8 @@ pub struct ImageViewerApp {
     pub last_metadata_refresh: Instant,
     pub last_metadata_path: Option<PathBuf>,
     pub show_left_sidebar: bool,
+    /// Which left-dock page is shown: 【列表】 or 【资源管理器】.
+    pub sidebar_dock_tab: crate::app::sidebar_dock::SidebarDockTab,
     pub show_preview_panel: bool,
 
     pub total_items: usize,
@@ -802,15 +804,26 @@ pub struct ImageViewerApp {
 
     // Saved tab groups shown under Quick Access ("open all" restores the tabs)
     pub folder_groups: Vec<crate::domain::folder_group::FolderGroup>,
+    /// Whether the 【列表】 page's 收藏 root is expanded.
+    pub favorite_root_expanded: bool,
+    /// Show only folder names instead of full paths in 收藏.
+    pub favorites_show_names_only: bool,
+    /// Whether the recent-folders section under 收藏 is expanded.
+    pub favorites_recent_expanded: bool,
+    /// Inline rename in progress in the 【列表】 page, if any.
+    pub favorites_rename: Option<crate::app::favorites_state::FavoritesRename>,
+    /// Favorite folder awaiting an off-thread existence check before opening.
+    pub pending_favorite_open: Option<crate::app::favorites_state::PendingFavoriteOpen>,
+    /// Recently visited folders (persisted, newest first), used by 【列表】.
+    /// Kept separate from the per-tab navigation history so removing an entry
+    /// never breaks back/forward.
+    pub recent_folders: Vec<String>,
     /// Checked once in the tab context menu: reveal the sidebar tree to the
     /// current folder on every navigation, like Explorer's auto-expand.
     pub auto_expand_folder_tree: bool,
     /// Location the auto-expand already reacted to; reveal is event-driven
     /// (fires on location change only, never per frame).
     pub auto_reveal_last_path: String,
-    /// "Save all tabs as a group" dialog: the editable group name while open.
-    pub save_group_name: String,
-    pub show_save_group_dialog: bool,
 
     // File tags / color labels (persistent metadata keyed by path)
     pub tag_definitions: rustc_hash::FxHashMap<i64, crate::domain::file_tag::FileTag>,

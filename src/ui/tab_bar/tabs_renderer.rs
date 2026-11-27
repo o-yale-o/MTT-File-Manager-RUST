@@ -368,7 +368,6 @@ pub(super) fn render_tabs(
                         if is_active { live_path } else { &tab.path },
                     ),
                     can_reopen: Some(tab_manager.can_reopen_closed_tab()),
-                    can_save_group: true,
                     auto_expand_tree,
                 },
             ) {

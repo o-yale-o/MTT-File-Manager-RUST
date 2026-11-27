@@ -116,8 +116,6 @@ pub enum SidebarAction {
     UnpinFolder(String),
     /// Open every saved folder of the group in its own tab.
     OpenFolderGroup(i64),
-    /// Delete a saved folder group.
-    DeleteFolderGroup(i64),
     ReorderPinnedFolder {
         from: usize,
         to: usize,
@@ -397,9 +395,6 @@ pub fn render_quick_access(ui: &mut egui::Ui, ctx: &mut SidebarContext) -> Optio
 
         // 2. USER-PINNED FOLDERS
         render_pinned_folders(ui, ctx, &mut action);
-
-        // 2b. SAVED TAB GROUPS ("open all" folder groups)
-        render_folder_groups(ui, ctx, &mut action);
 
         // === Drag-to-pin drop zone ===
         if ctx.is_folder_dragging {
@@ -1202,82 +1197,6 @@ fn render_pinned_folders(
     }
 }
 
-/// Renders saved tab groups below the pinned folders. Left click opens every
-/// folder of the group in its own tab; the context menu mirrors that command
-/// and adds deletion (like browser bookmark folder groups).
-fn render_folder_groups(
-    ui: &mut egui::Ui,
-    ctx: &mut SidebarContext,
-    action: &mut Option<SidebarAction>,
-) {
-    if ctx.folder_groups.is_empty() {
-        return;
-    }
-    for group in ctx.folder_groups {
-        let (rect, response) = ui.allocate_exact_size(
-            egui::vec2(ui.available_width(), 28.0),
-            egui::Sense::click(),
-        );
-        let mut rect = rect;
-        rect.min.x = ui.clip_rect().min.x;
-        rect.max.x = ui.clip_rect().max.x;
-
-        let response = response.on_hover_text(format!(
-            "{} ({})",
-            group.name,
-            t!("sidebar.group_open_all_count", count = group.paths.len())
-        ));
-
-        if ui.is_rect_visible(rect) {
-            if response.hovered() {
-                ui.painter().rect_filled(
-                    rect,
-                    0.0,
-                    crate::ui::theme::selection_hover_color(ui.ctx()),
-                );
-            }
-            let mut cursor_x = rect.min.x + 12.0;
-            ui.painter().text(
-                Pos2::new(cursor_x + 8.0, rect.center().y),
-                egui::Align2::CENTER_CENTER,
-                "🗂",
-                egui::FontId::proportional(13.0),
-                ui.visuals().text_color(),
-            );
-            cursor_x += 24.0;
-            let font_id = egui::FontId::proportional(11.5);
-            let text_max_width = (rect.right() - cursor_x).max(0.0);
-            let visible_name = crate::ui::preview_panel::utils::truncate_text_to_fit(
-                &group.name,
-                text_max_width,
-                &font_id,
-                ui,
-            );
-            ui.painter().text(
-                Pos2::new(cursor_x, rect.center().y),
-                egui::Align2::LEFT_CENTER,
-                &visible_name,
-                font_id,
-                ui.visuals().text_color(),
-            );
-        }
-
-        if response.clicked() && !ctx.is_renaming && action.is_none() {
-            *action = Some(SidebarAction::OpenFolderGroup(group.id));
-        }
-        response.context_menu(|ui| {
-            if ui.button(t!("sidebar.group_open_all")).clicked() {
-                *action = Some(SidebarAction::OpenFolderGroup(group.id));
-                ui.close();
-            }
-            if ui.button(t!("sidebar.group_delete")).clicked() {
-                *action = Some(SidebarAction::DeleteFolderGroup(group.id));
-                ui.close();
-            }
-        });
-        ui.add_space(2.0);
-    }
-}
 
 fn auto_scroll_quick_access_during_drag(
     ui: &mut egui::Ui,

@@ -9,8 +9,8 @@ mod sidebar_layout;
 mod sidebar_panel;
 
 // Sidebar width constraints
-const LEFT_SIDEBAR_MIN: f32 = 150.0;
-const LEFT_SIDEBAR_MAX: f32 = 500.0;
+const LEFT_SIDEBAR_MIN: f32 = 170.0;
+const LEFT_SIDEBAR_MAX: f32 = 750.0;
 const RIGHT_SIDEBAR_MIN: f32 = 250.0;
 /// Invisible grab zone around each divider. Wide enough to stay grabbable
 /// even when the file list's own vertical scrollbar sits at its right edge.

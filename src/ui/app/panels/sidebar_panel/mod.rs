@@ -4,8 +4,9 @@ use eframe::egui;
 
 use super::{sidebar_layout, LEFT_SIDEBAR_MAX, LEFT_SIDEBAR_MIN};
 
+mod dock_tabs;
 mod independent;
-mod quick_access;
+mod list;
 mod unified;
 
 pub(super) fn render(app: &mut ImageViewerApp, root_ui: &mut egui::Ui) -> Option<SidebarAction> {
@@ -22,15 +23,16 @@ pub(super) fn render(app: &mut ImageViewerApp, root_ui: &mut egui::Ui) -> Option
     let ctx = root_ui.ctx().clone();
     crate::ui::sidebar_tree::rename::begin_frame(&ctx);
     let can_drop_items_to_recycle_bin = app.can_drop_drag_payload_to_recycle_bin();
+    let content_bg = if dark_mode {
+        // Win11 Explorer: sidebar and content share the same base tone.
+        crate::ui::theme::palette::background(root_ui.ctx(), egui::Color32::from_rgb(45, 45, 45))
+    } else {
+        egui::Color32::WHITE
+    };
     let response = egui::Panel::left("sidebar")
         .exact_size(target_width)
         .resizable(false)
-        .frame(egui::Frame::NONE.fill(if dark_mode {
-            // Win11 Explorer: sidebar and content share the same base tone.
-            crate::ui::theme::palette::background(root_ui.ctx(), egui::Color32::from_rgb(45, 45, 45))
-        } else {
-            egui::Color32::WHITE
-        }))
+        .frame(egui::Frame::NONE.fill(content_bg))
         .show(root_ui, |ui| {
             // Register before rows so item context menus retain priority.
             let background = ui.interact(
@@ -38,10 +40,19 @@ pub(super) fn render(app: &mut ImageViewerApp, root_ui: &mut egui::Ui) -> Option
                 ui.id().with("sidebar_background_menu"),
                 egui::Sense::click(),
             );
-            let action = if app.explorer_preferences.sidebar_unified_scroll {
-                unified::render(app, ui, can_drop_items_to_recycle_bin)
-            } else {
-                independent::render(app, ui, can_drop_items_to_recycle_bin)
+            // The dock strip stays fixed above whichever page is shown.
+            dock_tabs::render(ui, app, content_bg);
+            let action = match app.sidebar_dock_tab {
+                crate::app::sidebar_dock::SidebarDockTab::List => {
+                    list::render(app, ui, can_drop_items_to_recycle_bin)
+                }
+                crate::app::sidebar_dock::SidebarDockTab::Explorer => {
+                    if app.explorer_preferences.sidebar_unified_scroll {
+                        unified::render(app, ui, can_drop_items_to_recycle_bin)
+                    } else {
+                        independent::render(app, ui, can_drop_items_to_recycle_bin)
+                    }
+                }
             };
             action.or(crate::ui::sidebar::section_menu::menu(
                 &background,

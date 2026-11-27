@@ -214,6 +214,11 @@ impl ImageViewerApp {
             thumbnail_size,
             view_mode,
             show_left_sidebar,
+            sidebar_dock_tab,
+            favorite_root_expanded,
+            favorites_show_names_only,
+            favorites_recent_expanded,
+            recent_folders,
             show_preview_panel,
             upload_budget_ms,
             saved_window_width,
@@ -529,6 +534,13 @@ impl ImageViewerApp {
             pending_video_player_action: None,
             selected_metadata: None,
             show_left_sidebar: initial_show_left_sidebar,
+            sidebar_dock_tab,
+            favorite_root_expanded,
+            favorites_show_names_only,
+            favorites_recent_expanded,
+            favorites_rename: None,
+            pending_favorite_open: None,
+            recent_folders,
             show_preview_panel: initial_show_preview_panel,
             show_recycle_bin,  // Loaded from SQLite
             show_quick_access, // Loaded from SQLite
@@ -893,8 +905,6 @@ impl ImageViewerApp {
             pinned_folders,
 
             folder_groups,
-            save_group_name: String::new(),
-            show_save_group_dialog: false,
 
             tag_definitions,
             sorted_tag_ids,

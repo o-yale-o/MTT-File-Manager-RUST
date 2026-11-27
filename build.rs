@@ -1,4 +1,13 @@
 fn main() {
+    // The Windows default of a 1 MB main-thread stack is not enough for the
+    // debug build: the startup chain constructs very large state structs by
+    // value (ImageViewerApp, AppBootstrap) and aborts with "thread 'main' has
+    // overflowed its stack" while bootstrapping workers. The reserve is only
+    // virtual address space and is committed on demand, so raising it keeps
+    // debug builds usable without affecting the release stack usage.
+    #[cfg(target_os = "windows")]
+    println!("cargo:rustc-link-arg-bins=/STACK:16777216");
+
     register_locale_rebuild_inputs();
 
     #[cfg(target_os = "windows")]

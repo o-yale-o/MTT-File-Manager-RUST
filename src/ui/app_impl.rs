@@ -239,6 +239,8 @@ impl eframe::App for ImageViewerApp {
         let _diagnostic_logic = crate::infrastructure::diagnostic_logger::SlowScope::new("logic");
         stall_watchdog::enter(Stage::LogicStart);
         self.poll_default_file_manager_action();
+        self.record_recent_folder();
+        self.poll_pending_favorite_open(ctx);
         // Real inter-frame interval tracking (captures hitches that stable_dt
         // smooths away, e.g. stalls in the previous frame's paint/swap phase).
         self.track_frame_interval();
@@ -764,8 +766,6 @@ impl eframe::App for ImageViewerApp {
         if self.pending_tag_cascade.is_some() {
             crate::ui::components::tag_cascade_modal::render_tag_cascade_modal(self, ctx);
         }
-
-        crate::ui::components::folder_group_modal::render_save_group_modal(self, ctx);
 
         // 14. Notifications
         crate::ui::components::copy_progress_panel::render(self, ctx);

@@ -346,7 +346,8 @@ impl AppStateDb {
             "CREATE TABLE IF NOT EXISTS folder_groups (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL COLLATE NOCASE UNIQUE,
-                position INTEGER NOT NULL DEFAULT 0
+                position INTEGER NOT NULL DEFAULT 0,
+                expanded INTEGER NOT NULL DEFAULT 1
             )",
             [],
         )
@@ -356,11 +357,31 @@ impl AppStateDb {
                 group_id INTEGER NOT NULL,
                 path TEXT NOT NULL,
                 position INTEGER NOT NULL DEFAULT 0,
+                name TEXT,
                 PRIMARY KEY (group_id, path)
             )",
             [],
         )
         .unwrap_or(0);
+        // Favorite-panel columns added after the first release: per-group
+        // expansion and per-folder custom display names.
+        if conn
+            .prepare("SELECT expanded FROM folder_groups LIMIT 0")
+            .is_err()
+        {
+            conn.execute(
+                "ALTER TABLE folder_groups ADD COLUMN expanded INTEGER NOT NULL DEFAULT 1",
+                [],
+            )
+            .unwrap_or(0);
+        }
+        if conn
+            .prepare("SELECT name FROM folder_group_paths LIMIT 0")
+            .is_err()
+        {
+            conn.execute("ALTER TABLE folder_group_paths ADD COLUMN name TEXT", [])
+                .unwrap_or(0);
+        }
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS file_tags (

@@ -346,7 +346,6 @@ pub(super) fn render_panel_tab_bar(
                                                 path,
                                             ),
                                             can_reopen: None,
-                                            can_save_group: false,
                                             auto_expand_tree: auto_expand_tree,
                                             },
                                         )

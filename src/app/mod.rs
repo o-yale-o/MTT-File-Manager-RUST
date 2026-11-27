@@ -21,6 +21,7 @@ pub mod drag_drop_state;
 pub mod drive_state;
 pub mod dual_panel;
 pub mod explorer_preferences;
+pub mod favorites_state;
 pub mod file_hash;
 pub mod file_operation_state;
 pub(crate) mod folder_export_state;
@@ -45,6 +46,7 @@ pub(crate) mod organizer_history_state;
 pub mod organizer_state;
 pub mod settings_window_geometry;
 pub mod shortcuts;
+pub mod sidebar_dock;
 pub mod startup_folder;
 pub mod startup_location;
 #[cfg(test)]

@@ -194,6 +194,25 @@ impl ImageViewerApp {
         ));
 
         prefs.push((
+            "sidebar_dock_tab",
+            self.sidebar_dock_tab.preference_value().to_string(),
+        ));
+        prefs.push((
+            "favorite_root_expanded",
+            self.favorite_root_expanded.to_string(),
+        ));
+        prefs.push((
+            "favorites_show_names_only",
+            self.favorites_show_names_only.to_string(),
+        ));
+        prefs.push((
+            "favorites_recent_expanded",
+            self.favorites_recent_expanded.to_string(),
+        ));
+        if let Ok(recent) = serde_json::to_string(&self.recent_folders) {
+            prefs.push(("recent_folders", recent));
+        }
+        prefs.push((
             "show_preview_panel",
             (if self.show_preview_panel {
                 "true"
@@ -336,7 +355,7 @@ impl ImageViewerApp {
         }
 
         // Sidebar widths persistence - only save valid values
-        let left_to_save = self.layout.sidebar_left_width.max(150.0);
+        let left_to_save = self.layout.sidebar_left_width.max(170.0);
         let right_to_save = self.layout.sidebar_right_width.max(250.0);
         prefs.push(("sidebar_left_width", left_to_save.to_string()));
         prefs.push(("sidebar_right_width", right_to_save.to_string()));

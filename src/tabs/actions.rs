@@ -13,8 +13,6 @@ pub enum TabAction {
     UnpinQuickAccess,
     ExpandFolderTree,
     CollapseFolderTree,
-    /// Save every tab of this strip as a named Quick Access group.
-    SaveTabsAsGroup,
 }
 
 pub(crate) fn close_candidates<T>(

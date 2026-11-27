@@ -11,8 +11,6 @@ pub(crate) struct TabContextMenuOptions {
     pub tree_action: Option<TabAction>,
     /// Pane strips do not share workspace closed-tab history and use `None`.
     pub can_reopen: Option<bool>,
-    /// Only the workspace strip can capture the whole window's tabs.
-    pub can_save_group: bool,
     /// Persisted "auto-expand folder tree" preference shown as a checkbox.
     pub auto_expand_tree: bool,
 }
@@ -30,7 +28,6 @@ pub(crate) fn tab_context_menu(
         quick_access_action,
         tree_action,
         can_reopen,
-        can_save_group,
         auto_expand_tree,
     } = options;
     let mut action = None;
@@ -65,12 +62,6 @@ pub(crate) fn tab_context_menu(
                 .clicked()
             {
                 action = Some(TabAction::ReopenClosed);
-                ui.close();
-            }
-        }
-        if can_save_group {
-            if ui.button(t!("tabs.save_group")).clicked() {
-                action = Some(TabAction::SaveTabsAsGroup);
                 ui.close();
             }
         }
